@@ -1,0 +1,221 @@
+# PingHermesAgent release — mirrors PingClaw release.yml (tag push → multi-platform build → GitHub Release)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Assert tag matches package.json
+        run: node scripts/assert-tag-matches-package.mjs
+
+  release:
+    needs: validate-release
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Detect release channel
+        id: channel
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+          else
+            TAG="${{ github.event.inputs.version }}"
+          fi
+          if [[ "$TAG" =~ (alpha|beta) ]]; then
+            echo "is_stable=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_stable=true" >> $GITHUB_OUTPUT
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Free disk space (macOS)
+        if: matrix.platform == 'mac'
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          brew cleanup --prune=all 2>/dev/null || true
+          df -h /
+
+      - name: Build macOS (unsigned)
+        if: matrix.platform == 'mac'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          ulimit -n 65536 || true
+          npm run package
+          node scripts/run-electron-builder.mjs --mac --publish never -c.mac.notarize=false
+
+      - name: Assemble macOS portable USB zips
+        if: matrix.platform == 'mac'
+        run: npm run package:portable:mac
+
+      - name: Build Windows
+        if: matrix.platform == 'win'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run package:win
+
+      - name: Build Linux
+        if: matrix.platform == 'linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run package:linux
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.AppImage
+            packages/desktop/release/*.deb
+            packages/desktop/release/*.rpm
+            packages/desktop/release/*.yml
+            packages/desktop/release/PingHermesAgentPortable-*.zip
+            !packages/desktop/release/builder-debug.yml
+            !packages/desktop/release/.portable-staging/**
+          retention-days: 7
+
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: release-*
+
+      - name: List artifacts
+        run: find release-artifacts/ -type f -exec ls -lh {} \;
+
+      - name: Remove builder-debug files
+        run: find release-artifacts/ -name 'builder-debug.yml' -delete -print || true
+
+      - name: Resolve release tag
+        id: release-tag
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "name=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.release-tag.outputs.tag }}
+          name: ${{ steps.release-tag.outputs.name }}
+          files: |
+            release-artifacts/**/*.dmg
+            release-artifacts/**/*.zip
+            release-artifacts/**/*.exe
+            release-artifacts/**/*.AppImage
+            release-artifacts/**/*.deb
+            release-artifacts/**/*.rpm
+            release-artifacts/**/*.yml
+          draft: false
+          prerelease: true
+          make_latest: false
+          generate_release_notes: true
+          body: |
+            ## PingHermesAgent ${{ steps.release-tag.outputs.name }}
+
+            PingAI 品智定制 Hermes Agent Desktop
+
+            ### Downloads
+
+            #### macOS
+            - **Apple Silicon**: `PingHermesAgent-*-mac-arm64.dmg`
+            - **Intel**: `PingHermesAgent-*-mac-x64.dmg`
+            - **Portable USB (arm64/x64)**: `PingHermesAgentPortable-*-mac-*.zip`
+
+            #### Windows
+            - **Installer**: `PingHermesAgent-*-win-x64.exe`
+
+            #### Linux
+            - **AppImage / deb / rpm**: `PingHermesAgent-*-linux-*`
+
+            Portable zips ship the app + USB launcher; run `assemble-portable.mjs mac --prebake` locally for offline Python backend bundles.
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  finalize:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Resolve release tag
+        id: release-tag
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Promote stable release to latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.release-tag.outputs.tag }}"
+          if [[ "$TAG" == *"alpha"* ]] || [[ "$TAG" == *"beta"* ]]; then
+            echo "Prerelease channel — keeping as pre-release."
+          else
+            gh release edit "$TAG" --prerelease=false --latest --repo "${{ github.repository }}"
+          fi

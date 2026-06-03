@@ -1,0 +1,39 @@
+{
+  "name": "pinghermesagent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PingHermesAgent — PingAI 品智定制的 Hermes Agent Desktop（Strategy A：官方 Python 后端）",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "build": "npm run build --workspace=pinghermesagent-desktop",
+    "pack": "npm run pack --workspace=pinghermesagent-desktop",
+    "package": "npm run build --workspace=pinghermesagent-desktop",
+    "package:mac": "npm run package && node scripts/run-electron-builder.mjs --mac --publish never",
+    "package:win": "npm run package && node scripts/run-electron-builder.mjs --win --publish never",
+    "package:linux": "npm run package && node scripts/run-electron-builder.mjs --linux --publish never",
+    "package:portable:mac": "node scripts/assemble-portable.mjs mac",
+    "package:portable:mac:offline": "node scripts/assemble-portable.mjs mac --prebake",
+    "dist:mac": "npm run package:mac",
+    "dist:win": "npm run package:win",
+    "dist:linux": "npm run package:linux",
+    "type-check": "npm run type-check --workspace=pinghermesagent-desktop",
+    "preversion": "node scripts/pre-version-fetch-tags.mjs",
+    "version": "node scripts/assert-release-version.mjs && node scripts/sync-workspace-version.mjs",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "version:prerelease-alpha": "npm version prerelease --preid=alpha",
+    "version:prerelease-beta": "npm version prerelease --preid=beta",
+    "release:validate": "node scripts/assert-tag-matches-package.mjs",
+    "postversion": "node scripts/post-version-push.mjs"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "overrides": {
+    "lodash": "4.18.1"
+  }
+}
