@@ -5,6 +5,11 @@
   "version": "0.1.0",
   "description": "PingHermesAgent desktop shell for Hermes Agent (uses official Nous Python backend).",
   "author": "Ping",
+  "homepage": "https://github.com/sipingme/PingHermesAgent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sipingme/PingHermesAgent.git"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "engines": {
