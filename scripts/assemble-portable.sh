@@ -123,6 +123,12 @@ fi
 if [[ ! -f "$OUT/Start PingHermesAgent.command" ]]; then
   cp "$ROOT/portable/Start PingHermesAgent.command" "$OUT/"
 fi
+if [[ ! -f "$OUT/Start PingHermesAgent.sh" ]]; then
+  cp "$ROOT/portable/Start PingHermesAgent.sh" "$OUT/" 2>/dev/null || true
+fi
+if [[ ! -f "$OUT/Start PingHermesAgent.bat" ]]; then
+  cp "$ROOT/portable/Start PingHermesAgent.bat" "$OUT/" 2>/dev/null || true
+fi
 if [[ ! -f "$OUT/README.txt" ]]; then
   cp "$ROOT/portable/README.txt" "$OUT/"
 fi
@@ -136,7 +142,8 @@ if [[ -f "$ROOT/package.json" ]]; then
 fi
 echo "$DESKTOP_VER" > "$OUT/VERSION"
 
-chmod +x "$OUT/Start PingHermesAgent.command"
+chmod +x "$OUT/Start PingHermesAgent.command" 2>/dev/null || true
+chmod +x "$OUT/Start PingHermesAgent.sh" 2>/dev/null || true
 
 VENV="$OUT/data/hermes/hermes-agent/venv/bin/python"
 if [[ -x "$VENV" ]]; then

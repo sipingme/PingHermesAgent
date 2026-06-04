@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Assemble PingHermesAgentPortable USB zips after electron-builder (PingClaw-style).
+ * Assemble PingHermesAgentPortable USB zips after electron-builder.
  *
  * Usage:
- *   node scripts/assemble-portable.mjs mac
- *   node scripts/assemble-portable.mjs mac --prebake
+ *   node scripts/assemble-portable.mjs mac|win|linux|all [--prebake]
  *
- * Output: packages/desktop/release/PingHermesAgentPortable-{version}-mac-{arch}.zip
+ * Output: packages/desktop/release/PingHermesAgentPortable-{version}-{platform}-{arch}.zip
  */
 import {
   chmodSync,
@@ -31,6 +30,13 @@ const PORTABLE_SRC = existsSync(join(PORTABLE_TEMPLATE, 'Start PingHermesAgent.c
   : join(ROOT, 'portable');
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
 
+const LAUNCHERS = [
+  'Start PingHermesAgent.command',
+  'Start PingHermesAgent.bat',
+  'Start PingHermesAgent.sh',
+  'README.txt',
+];
+
 function bundleName(platform, arch) {
   return `PingHermesAgentPortable-${VERSION}-${platform}-${arch}`;
 }
@@ -39,7 +45,7 @@ function copyPortableTemplate(outDir) {
   mkdirSync(join(outDir, 'data/desktop'), { recursive: true });
   mkdirSync(join(outDir, 'data/hermes/home'), { recursive: true });
 
-  for (const name of ['Start PingHermesAgent.command', 'Start PingHermesAgent.bat', 'README.txt']) {
+  for (const name of LAUNCHERS) {
     const src = join(PORTABLE_SRC, name);
     if (existsSync(src)) {
       cpSync(src, join(outDir, name));
@@ -57,7 +63,13 @@ function copyPortableTemplate(outDir) {
   }
 
   writeFileSync(join(outDir, 'VERSION'), `${VERSION}\n`, 'utf8');
-  chmodSync(join(outDir, 'Start PingHermesAgent.command'), 0o755);
+
+  for (const launcher of ['Start PingHermesAgent.command', 'Start PingHermesAgent.sh']) {
+    const path = join(outDir, launcher);
+    if (existsSync(path)) {
+      chmodSync(path, 0o755);
+    }
+  }
 }
 
 function zipDirectory(sourceDir, zipPath) {
@@ -84,6 +96,23 @@ function zipDirectory(sourceDir, zipPath) {
   });
 }
 
+function prebakeBackend(outHermesHome) {
+  if (process.platform === 'win32') {
+    console.warn('[assemble-portable] Skip prebake on Windows — run on macOS/Linux or copy data/hermes');
+    return;
+  }
+  console.log(`[assemble-portable] Prebaking backend into ${outHermesHome}...`);
+  execFileSync(join(ROOT, 'scripts/prebake-backend.sh'), {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      HERMES_HOME: outHermesHome,
+    },
+    shell: process.platform === 'win32',
+  });
+}
+
 function resolveMacAppPath(arch) {
   const folder = arch === 'arm64' ? 'mac-arm64' : 'mac';
   const candidates = [
@@ -102,26 +131,28 @@ function resolveMacAppPath(arch) {
   return null;
 }
 
-function prebakeBackend(outHermesHome) {
-  console.log(`[assemble-portable] Prebaking backend into ${outHermesHome}...`);
-  execFileSync(join(ROOT, 'scripts/prebake-backend.sh'), {
-    cwd: ROOT,
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      HERMES_HOME: outHermesHome,
-    },
-  });
+function resolveWinUnpackedDir() {
+  const dir = join(RELEASE, 'win-unpacked');
+  if (existsSync(join(dir, 'PingHermesAgent.exe'))) {
+    return dir;
+  }
+  return null;
 }
 
-function assembleMacArch(arch, prebake) {
-  const appPath = resolveMacAppPath(arch);
-  if (!appPath) {
-    console.warn(`[assemble-portable] Skip mac-${arch}: PingHermesAgent.app not found under ${RELEASE}`);
+function resolveLinuxAppImage() {
+  if (!existsSync(RELEASE)) {
     return null;
   }
+  for (const name of readdirSync(RELEASE)) {
+    if (name.endsWith('.AppImage') && name.includes('PingHermesAgent')) {
+      return join(RELEASE, name);
+    }
+  }
+  return null;
+}
 
-  const name = bundleName('mac', arch);
+function assembleBundle({ platform, arch, prebake, populate }) {
+  const name = bundleName(platform, arch);
   const outDir = join(STAGING, name);
   const zipPath = join(RELEASE, `${name}.zip`);
 
@@ -133,11 +164,28 @@ function assembleMacArch(arch, prebake) {
     prebakeBackend(join(outDir, 'data/hermes'));
   }
 
-  // Launcher expects PingHermesAgent.app at bundle root.
-  cpSync(appPath, join(outDir, 'PingHermesAgent.app'), { recursive: true });
+  populate(outDir);
+
   zipDirectory(outDir, zipPath);
   console.log(`[assemble-portable] Created ${zipPath}`);
   return zipPath;
+}
+
+function assembleMacArch(arch, prebake) {
+  const appPath = resolveMacAppPath(arch);
+  if (!appPath) {
+    console.warn(`[assemble-portable] Skip mac-${arch}: PingHermesAgent.app not found under ${RELEASE}`);
+    return null;
+  }
+
+  return assembleBundle({
+    platform: 'mac',
+    arch,
+    prebake,
+    populate(outDir) {
+      cpSync(appPath, join(outDir, 'PingHermesAgent.app'), { recursive: true });
+    },
+  });
 }
 
 function assembleMac(prebake) {
@@ -155,21 +203,71 @@ function assembleMac(prebake) {
   return created;
 }
 
+function assembleWin(prebake) {
+  const unpacked = resolveWinUnpackedDir();
+  if (!unpacked) {
+    throw new Error(`Windows win-unpacked/PingHermesAgent.exe not found under ${RELEASE}`);
+  }
+
+  mkdirSync(STAGING, { recursive: true });
+  return [
+    assembleBundle({
+      platform: 'win',
+      arch: 'x64',
+      prebake,
+      populate(outDir) {
+        cpSync(unpacked, join(outDir, 'win'), { recursive: true });
+      },
+    }),
+  ];
+}
+
+function assembleLinux(prebake) {
+  const appImage = resolveLinuxAppImage();
+  if (!appImage) {
+    throw new Error(`Linux AppImage not found under ${RELEASE}`);
+  }
+
+  mkdirSync(STAGING, { recursive: true });
+  return [
+    assembleBundle({
+      platform: 'linux',
+      arch: 'x64',
+      prebake,
+      populate(outDir) {
+        const dest = join(outDir, 'PingHermesAgent.AppImage');
+        cpSync(appImage, dest);
+        chmodSync(dest, 0o755);
+      },
+    }),
+  ];
+}
+
 function main() {
   const args = process.argv.slice(2);
-  const platform = args[0];
+  const platform = args.find((arg) => !arg.startsWith('-')) ?? '';
   const prebake = args.includes('--prebake') || process.env.PINGHERMESAGENT_PREBAKE_PORTABLE === '1';
-
-  if (!existsSync(join(PORTABLE_SRC, 'Start PingHermesAgent.command'))) {
-    throw new Error(`Portable launcher missing: ${join(PORTABLE_SRC, 'Start PingHermesAgent.command')}`);
-  }
 
   if (platform === 'mac') {
     assembleMac(prebake);
     return;
   }
+  if (platform === 'win') {
+    assembleWin(prebake);
+    return;
+  }
+  if (platform === 'linux') {
+    assembleLinux(prebake);
+    return;
+  }
+  if (platform === 'all') {
+    assembleMac(prebake);
+    assembleWin(prebake);
+    assembleLinux(prebake);
+    return;
+  }
 
-  throw new Error('Usage: node scripts/assemble-portable.mjs <mac> [--prebake]');
+  throw new Error('Usage: node scripts/assemble-portable.mjs <mac|win|linux|all> [--prebake]');
 }
 
 try {

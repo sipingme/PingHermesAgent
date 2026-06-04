@@ -56,16 +56,22 @@ HERMES_DESKTOP_HERMES_ROOT=/path/to/hermes-agent npm run dev
 
 ## 便携版
 
-U 盘目录模板在 sibling 仓库 **`PingHermesAgentPortable/`**（与 PingClawPortable 同级）。完整离线包输出为 `dist/PingHermesAgentPortable/` 或 CI 的 `PingHermesAgentPortable-*.zip`。
+U 盘目录模板在 sibling 仓库 **`PingHermesAgentPortable/`**。CI 会为 **macOS / Windows / Linux** 分别产出便携 zip：
 
-**需先打包 Electron**（模板目录本身不能直接运行，需放入 `.app` 与预装后端）：
+| 平台 | Release 产物 |
+|------|----------------|
+| macOS | `PingHermesAgentPortable-{version}-mac-{arm64\|x64}.zip` |
+| Windows | `PingHermesAgentPortable-{version}-win-x64.zip` |
+| Linux | `PingHermesAgentPortable-{version}-linux-x64.zip` |
 
 ```bash
 npm install
-npm run package:mac
-npm run package:portable:mac              # PingHermesAgentPortable-{version}-mac-{arch}.zip（与 PingClaw 同名规则）
-# 离线含 Python 后端（体积大，适合 U 盘）：
+npm run package:mac && npm run package:portable:mac
+npm run package:win && npm run package:portable:win
+npm run package:linux && npm run package:portable:linux
+# 离线含 Python 后端（mac/linux）：
 npm run package:portable:mac:offline
+npm run package:portable:linux:offline
 ```
 
 或本地文件夹方式：

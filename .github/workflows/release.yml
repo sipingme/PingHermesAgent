@@ -99,11 +99,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run package:win
 
+      - name: Assemble Windows portable USB zips
+        if: matrix.platform == 'win'
+        run: npm run package:portable:win
+
       - name: Build Linux
         if: matrix.platform == 'linux'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run package:linux
+
+      - name: Assemble Linux portable USB zips
+        if: matrix.platform == 'linux'
+        run: npm run package:portable:linux
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -184,9 +192,11 @@ jobs:
 
             #### Windows
             - **Installer**: `PingHermesAgent-*-win-x64.exe`
+            - **Portable USB**: `PingHermesAgentPortable-*-win-x64.zip`
 
             #### Linux
             - **AppImage / deb / rpm**: `PingHermesAgent-*-linux-*`
+            - **Portable USB**: `PingHermesAgentPortable-*-linux-x64.zip`
 
             Portable zips ship the app + USB launcher; run `assemble-portable.mjs mac --prebake` locally for offline Python backend bundles.
 
