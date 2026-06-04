@@ -66,6 +66,27 @@ if (USER_DATA_OVERRIDE) {
   app.setPath('userData', resolvedUserData)
 }
 
+;(function () {
+  try {
+    if (process.resourcesPath) {
+      const marker = path.resolve(process.resourcesPath, '..', '..', '..', '.pinghermesagent-portable')
+      if (fs.existsSync(marker)) {
+        const portableRoot = path.dirname(marker)
+        const portableHermes = path.join(portableRoot, 'data', 'hermes')
+        const portableDesktop = path.join(portableRoot, 'data', 'desktop')
+        fs.mkdirSync(portableHermes, { recursive: true })
+        fs.mkdirSync(portableDesktop, { recursive: true })
+        if (!process.env.PINGHERMESAGENT_PORTABLE) process.env.PINGHERMESAGENT_PORTABLE = '1'
+        if (!process.env.PINGHERMESAGENT_OFFLINE) process.env.PINGHERMESAGENT_OFFLINE = '1'
+        if (!process.env.HERMES_HOME) process.env.HERMES_HOME = portableHermes
+        if (!process.env.HERMES_DESKTOP_USER_DATA_DIR) process.env.HERMES_DESKTOP_USER_DATA_DIR = portableDesktop
+        app.setPath('userData', portableDesktop)
+        console.log(`[hermes] portable mode: using ${portableHermes} and ${portableDesktop}`)
+      }
+    }
+  } catch {}
+})()
+
 const PORT_FLOOR = 9120
 const PORT_CEILING = 9199
 const DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER
