@@ -94,15 +94,15 @@ if [[ "$SKIP_INSTALL" == false ]]; then
     echo "Backend already present at $HERMES/hermes-agent — skipping install"
   else
     if [[ "$USE_STANDALONE_PYTHON" == 1 ]]; then
-      echo "==> Installing backend with relocatable standalone Python (requires network on CI)..."
+      echo "==> Installing backend with relocatable standalone Python (via vendored installer)..."
       PYBIN="$(ensure_standalone_python)"
-      # Create venv using copies to avoid absolute framework references
-      "$PYBIN" -m venv --copies "$HERMES/hermes-agent/venv"
+      # Ensure vendored installer picks our standalone python when creating venv
+      PATH_PREV="$PATH"
+      export PATH="$HERMES/python/bin:$PATH"
+      "$ROOT/scripts/install-backend.sh"
+      export PATH="$PATH_PREV"
       VENV_PY="$HERMES/hermes-agent/venv/bin/python"
-      "$VENV_PY" -m pip install -U pip wheel setuptools
-      # Install Hermes backend from PyPI (or allow customization via PIP_INDEX_URL on CI)
-      "$VENV_PY" -m pip install -U hermes-agent
-      # Optional: CLI entry check
+      "$VENV_PY" -m pip install -U pip wheel setuptools >/dev/null 2>&1 || true
       "$VENV_PY" -c 'import hermes_cli' >/dev/null
     else
       echo "==> Installing backend with system Python (requires network: git + PyPI)..."
