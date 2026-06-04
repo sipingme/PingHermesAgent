@@ -97,6 +97,12 @@ jobs:
 
       - name: Assemble macOS portable USB zips (offline backend)
         if: matrix.platform == 'mac'
+        env:
+          # Request relocatable Python prebake
+          PINGHERMESAGENT_PREBAKE_STANDALONE: '1'
+          # Supply arch-specific standalone Python tarballs (set these secrets to python-build-standalone URLs)
+          PINGHERMESAGENT_STANDALONE_PY_URL_ARM64: ${{ secrets.STANDALONE_PY_URL_MAC_ARM64 }}
+          PINGHERMESAGENT_STANDALONE_PY_URL_X64: ${{ secrets.STANDALONE_PY_URL_MAC_X64 }}
         run: npm run package:portable:mac:offline
 
       - name: Verify macOS portable prebaked backend
@@ -107,7 +113,8 @@ jobs:
           for arch in arm64 x64; do
             dir="packages/desktop/release/.portable-staging/PingHermesAgentPortable-${VERSION}-mac-${arch}"
             test -x "$dir/data/hermes/hermes-agent/venv/bin/python"
-            "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import hermes_cli"
+            # Verify import using bundled relocatable Python only
+            "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import hermes_cli; print('IMPORT_OK')"
             test -f "$dir/data/hermes/hermes-agent/.hermes-bootstrap-complete"
             echo "OK: offline backend in PingHermesAgentPortable-${VERSION}-mac-${arch}.zip staging"
           done

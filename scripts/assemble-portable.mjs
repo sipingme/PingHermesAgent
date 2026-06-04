@@ -102,13 +102,21 @@ function prebakeBackend(outHermesHome) {
     return;
   }
   console.log(`[assemble-portable] Prebaking backend into ${outHermesHome}...`);
+  const env = {
+    ...process.env,
+    HERMES_HOME: outHermesHome,
+  };
+  // Allow CI to request a relocatable Python
+  if (process.env.PINGHERMESAGENT_PREBAKE_STANDALONE === '1') {
+    env.PINGHERMESAGENT_PREBAKE_STANDALONE = '1';
+  }
+  if (process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL) {
+    env.PINGHERMESAGENT_PYTHON_TARBALL_URL = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  }
   execFileSync(join(ROOT, 'scripts/prebake-backend.sh'), {
     cwd: ROOT,
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      HERMES_HOME: outHermesHome,
-    },
+    env,
     shell: process.platform === 'win32',
   });
   assertPrebakedBackend(outHermesHome);
@@ -192,7 +200,18 @@ function assembleMacArch(arch, prebake) {
     return null;
   }
 
-  return assembleBundle({
+  // If CI provided arch-specific standalone Python tarball URLs, set for this arch only
+  const prevTar = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  if (process.env.PINGHERMESAGENT_PREBAKE_STANDALONE === '1') {
+    const armUrl = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_ARM64;
+    const x64Url = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_X64;
+    const chosen = arch === 'arm64' ? armUrl : x64Url;
+    if (chosen) {
+      process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = chosen;
+    }
+  }
+
+  const res = assembleBundle({
     platform: 'mac',
     arch,
     prebake,
@@ -200,6 +219,13 @@ function assembleMacArch(arch, prebake) {
       cpSync(appPath, join(outDir, 'PingHermesAgent.app'), { recursive: true });
     },
   });
+  // restore
+  if (prevTar === undefined) {
+    delete process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  } else {
+    process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = prevTar;
+  }
+  return res;
 }
 
 function assembleMac(prebake) {
