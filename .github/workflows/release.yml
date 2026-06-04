@@ -85,6 +85,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install zstd for standalone Python extraction (macOS)
+        if: matrix.platform == 'mac'
+        run: |
+          brew update || true
+          brew install zstd || true
+
       - name: Build macOS (unsigned)
         if: matrix.platform == 'mac'
         env:

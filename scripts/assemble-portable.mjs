@@ -202,12 +202,19 @@ function assembleMacArch(arch, prebake) {
 
   // If CI provided arch-specific standalone Python tarball URLs, set for this arch only
   const prevTar = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  const prevStandalone = process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
+  let standaloneTemporarilyDisabled = false;
   if (process.env.PINGHERMESAGENT_PREBAKE_STANDALONE === '1') {
     const armUrl = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_ARM64;
     const x64Url = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_X64;
     const chosen = arch === 'arm64' ? armUrl : x64Url;
     if (chosen) {
       process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = chosen;
+    } else {
+      // No tarball URL for this arch — fall back to system-Python prebake.
+      delete process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
+      standaloneTemporarilyDisabled = true;
+      console.warn(`[assemble-portable] No standalone Python tarball URL provided for mac-${arch}; falling back to system-Python prebake`);
     }
   }
 
@@ -224,6 +231,9 @@ function assembleMacArch(arch, prebake) {
     delete process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
   } else {
     process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = prevTar;
+  }
+  if (standaloneTemporarilyDisabled) {
+    process.env.PINGHERMESAGENT_PREBAKE_STANDALONE = prevStandalone;
   }
   return res;
 }
