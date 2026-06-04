@@ -53,7 +53,9 @@ ensure_standalone_python() {
   fi
   echo "==> Fetching standalone Python..."
   mkdir -p "$HERMES/cache/python" "$HERMES/python"
-  local tarpath="$HERMES/cache/python/standalone-python.tar"
+  local filename
+  filename="$(basename "$PY_TARBALL_URL" | sed 's/[?].*$//')"
+  local tarpath="$HERMES/cache/python/$filename"
   curl -fsSL "$PY_TARBALL_URL" -o "$tarpath"
   echo "==> Extracting standalone Python..."
   case "$tarpath" in
