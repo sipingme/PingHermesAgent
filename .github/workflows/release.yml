@@ -79,6 +79,12 @@ jobs:
           brew cleanup --prune=all 2>/dev/null || true
           df -h /
 
+      - name: Setup Python for portable prebake
+        if: matrix.platform == 'mac'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Build macOS (unsigned)
         if: matrix.platform == 'mac'
         env:
@@ -89,9 +95,23 @@ jobs:
           npm run package
           node scripts/run-electron-builder.mjs --mac --publish never -c.mac.notarize=false
 
-      - name: Assemble macOS portable USB zips
+      - name: Assemble macOS portable USB zips (offline backend)
         if: matrix.platform == 'mac'
-        run: npm run package:portable:mac
+        run: npm run package:portable:mac:offline
+
+      - name: Verify macOS portable prebaked backend
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for arch in arm64 x64; do
+            dir="packages/desktop/release/.portable-staging/PingHermesAgentPortable-${VERSION}-mac-${arch}"
+            test -x "$dir/data/hermes/hermes-agent/venv/bin/python"
+            "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import hermes_cli"
+            test -f "$dir/data/hermes/hermes-agent/.hermes-bootstrap-complete"
+            echo "OK: offline backend in PingHermesAgentPortable-${VERSION}-mac-${arch}.zip staging"
+          done
+          df -h /
 
       - name: Build Windows
         if: matrix.platform == 'win'
@@ -188,7 +208,7 @@ jobs:
             #### macOS
             - **Apple Silicon**: `PingHermesAgent-*-mac-arm64.dmg`
             - **Intel**: `PingHermesAgent-*-mac-x64.dmg`
-            - **Portable USB (arm64/x64)**: `PingHermesAgentPortable-*-mac-*.zip`
+            - **Portable USB (arm64/x64, offline)**: `PingHermesAgentPortable-*-mac-*.zip` — includes pre-baked `data/hermes/` Python backend
 
             #### Windows
             - **Installer**: `PingHermesAgent-*-win-x64.exe`
@@ -198,7 +218,7 @@ jobs:
             - **AppImage / deb / rpm**: `PingHermesAgent-*-linux-*`
             - **Portable USB**: `PingHermesAgentPortable-*-linux-x64.zip`
 
-            Portable zips ship the app + USB launcher; run `assemble-portable.mjs mac --prebake` locally for offline Python backend bundles.
+            macOS portable zips include a pre-baked `data/hermes/` backend (offline-ready). Windows/Linux portable zips ship app + launcher only; prebake locally with `npm run package:portable:linux:offline` if needed.
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

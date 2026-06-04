@@ -111,6 +111,20 @@ function prebakeBackend(outHermesHome) {
     },
     shell: process.platform === 'win32',
   });
+  assertPrebakedBackend(outHermesHome);
+}
+
+function assertPrebakedBackend(outHermesHome) {
+  const venvPy = join(outHermesHome, 'hermes-agent/venv/bin/python');
+  if (!existsSync(venvPy)) {
+    throw new Error(`[assemble-portable] Prebake failed: missing ${venvPy}`);
+  }
+  execFileSync(venvPy, ['-c', 'import hermes_cli'], { stdio: 'pipe' });
+  const marker = join(outHermesHome, 'hermes-agent/.hermes-bootstrap-complete');
+  if (!existsSync(marker)) {
+    throw new Error(`[assemble-portable] Prebake failed: missing ${marker}`);
+  }
+  console.log(`[assemble-portable] Verified offline backend at ${outHermesHome}`);
 }
 
 function resolveMacAppPath(arch) {

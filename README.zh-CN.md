@@ -58,19 +58,18 @@ HERMES_DESKTOP_HERMES_ROOT=/path/to/hermes-agent npm run dev
 
 U 盘目录模板在 sibling 仓库 **`PingHermesAgentPortable/`**。CI 会为 **macOS / Windows / Linux** 分别产出便携 zip：
 
-| 平台 | Release 产物 |
-|------|----------------|
-| macOS | `PingHermesAgentPortable-{version}-mac-{arm64\|x64}.zip` |
-| Windows | `PingHermesAgentPortable-{version}-win-x64.zip` |
-| Linux | `PingHermesAgentPortable-{version}-linux-x64.zip` |
+| 平台 | Release 产物 | 含 `data/hermes/` 离线后端 |
+|------|----------------|---------------------------|
+| macOS | `PingHermesAgentPortable-{version}-mac-{arm64\|x64}.zip` | **是**（CI 自动 prebake） |
+| Windows | `PingHermesAgentPortable-{version}-win-x64.zip` | 否（需本地 prebake） |
+| Linux | `PingHermesAgentPortable-{version}-linux-x64.zip` | 否（可用 `package:portable:linux:offline`） |
 
 ```bash
 npm install
-npm run package:mac && npm run package:portable:mac
+npm run package:mac && npm run package:portable:mac:offline   # mac 便携 zip（含 Python 后端）
 npm run package:win && npm run package:portable:win
 npm run package:linux && npm run package:portable:linux
-# 离线含 Python 后端（mac/linux）：
-npm run package:portable:mac:offline
+# 本地再打含后端的 linux 便携包：
 npm run package:portable:linux:offline
 ```
 
@@ -111,7 +110,7 @@ CI 产出（与 PingClaw 对齐）：
 | 脚本 | 作用 |
 |------|------|
 | `scripts/prebake-backend.sh` | 安装后端到 `data/hermes` + 写入 bootstrap 标记 |
-| `scripts/assemble-portable.mjs` | CI/本地：打便携 zip（PingClaw 同款命名） |
+| `scripts/assemble-portable.mjs` | CI/本地：打便携 zip；Release mac 使用 `--prebake` |
 | `scripts/assemble-portable.sh` | 本地：组装 `dist/PingHermesAgentPortable/` 文件夹 |
 | `scripts/stamp-bootstrap-marker.sh` | 让 Desktop 跳过首次安装向导 |
 
