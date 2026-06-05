@@ -3,6 +3,14 @@
 Route 1 ships a **pre-baked Python backend** inside `data/hermes/` so the target
 machine never runs `install.sh` or bootstrap (no GitHub, no git clone on USB).
 
+## Host machine isolation
+
+Portable mode must **never** install or write to the host `~/.hermes` or
+`~/Library/Application Support/PingHermesAgent`. Always launch via
+`Start PingHermesAgent.command` (not by double-clicking `PingHermesAgent.app`
+alone). From **0.1.8** onward the app blocks host bootstrap and ignores the
+host `hermes` CLI when the portable marker is detected.
+
 ## Requirements (build machine only)
 
 - Network once (git + PyPI + npm for app build)

@@ -247,6 +247,12 @@ function assembleMacArch(arch, prebake) {
     prebake,
     populate(outDir) {
       cpSync(appPath, join(outDir, 'PingHermesAgent.app'), { recursive: true });
+      const resourcesDir = join(outDir, 'PingHermesAgent.app', 'Contents', 'Resources');
+      const markerSrc = join(outDir, '.pinghermesagent-portable');
+      if (existsSync(markerSrc)) {
+        mkdirSync(resourcesDir, { recursive: true });
+        cpSync(markerSrc, join(resourcesDir, 'portable.marker'));
+      }
     },
   });
   // restore

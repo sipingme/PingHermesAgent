@@ -1,6 +1,6 @@
 {
   "name": "pinghermesagent",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "PingHermesAgent — PingAI 品智定制的 Hermes Agent Desktop（Strategy A：官方 Python 后端）",
   "homepage": "https://github.com/sipingme/PingHermesAgent",

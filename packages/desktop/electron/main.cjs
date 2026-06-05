@@ -27,6 +27,7 @@ const { execFileSync, spawn } = require('node:child_process')
 const { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } = require('./bootstrap-platform.cjs')
 const { runBootstrap } = require('./bootstrap-runner.cjs')
 const { canImportHermesCli, verifyHermesCli } = require('./backend-probes.cjs')
+const { bootstrapPortableRuntime, isPortableMode, getPortableRuntime } = require('./portable-runtime.cjs')
 const {
   DATA_URL_READ_MAX_BYTES,
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -59,33 +60,30 @@ try {
   }
 }
 
-const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
-if (USER_DATA_OVERRIDE) {
-  const resolvedUserData = path.resolve(USER_DATA_OVERRIDE)
-  fs.mkdirSync(resolvedUserData, { recursive: true })
-  app.setPath('userData', resolvedUserData)
-}
-
-;(function () {
+const PORTABLE_RUNTIME = bootstrapPortableRuntime({
+  execPath: process.execPath,
+  resourcesPath: process.resourcesPath
+})
+if (PORTABLE_RUNTIME.enabled) {
+  fs.mkdirSync(PORTABLE_RUNTIME.desktopUserData, { recursive: true })
+  fs.mkdirSync(PORTABLE_RUNTIME.portableHome, { recursive: true })
+  app.setPath('userData', PORTABLE_RUNTIME.desktopUserData)
   try {
-    if (process.resourcesPath) {
-      const marker = path.resolve(process.resourcesPath, '..', '..', '..', '.pinghermesagent-portable')
-      if (fs.existsSync(marker)) {
-        const portableRoot = path.dirname(marker)
-        const portableHermes = path.join(portableRoot, 'data', 'hermes')
-        const portableDesktop = path.join(portableRoot, 'data', 'desktop')
-        fs.mkdirSync(portableHermes, { recursive: true })
-        fs.mkdirSync(portableDesktop, { recursive: true })
-        if (!process.env.PINGHERMESAGENT_PORTABLE) process.env.PINGHERMESAGENT_PORTABLE = '1'
-        if (!process.env.PINGHERMESAGENT_OFFLINE) process.env.PINGHERMESAGENT_OFFLINE = '1'
-        if (!process.env.HERMES_HOME) process.env.HERMES_HOME = portableHermes
-        if (!process.env.HERMES_DESKTOP_USER_DATA_DIR) process.env.HERMES_DESKTOP_USER_DATA_DIR = portableDesktop
-        app.setPath('userData', portableDesktop)
-        console.log(`[hermes] portable mode: using ${portableHermes} and ${portableDesktop}`)
-      }
-    }
-  } catch {}
-})()
+    app.setPath('home', PORTABLE_RUNTIME.portableHome)
+  } catch (error) {
+    console.warn(`[hermes] portable: could not redirect Electron home: ${error.message}`)
+  }
+  console.log(
+    `[hermes] portable mode: root=${PORTABLE_RUNTIME.root} hermes=${PORTABLE_RUNTIME.hermesHome} userData=${PORTABLE_RUNTIME.desktopUserData}`
+  )
+} else {
+  const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
+  if (USER_DATA_OVERRIDE) {
+    const resolvedUserData = path.resolve(USER_DATA_OVERRIDE)
+    fs.mkdirSync(resolvedUserData, { recursive: true })
+    app.setPath('userData', resolvedUserData)
+  }
+}
 
 const PORT_FLOOR = 9120
 const PORT_CEILING = 9199
@@ -202,7 +200,18 @@ if (INSTALL_STAMP) {
 // HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
 // touches the user's real ~/.hermes / %LOCALAPPDATA%\hermes.
 function resolveHermesHome() {
+  if (isPortableMode()) {
+    const portable = getPortableRuntime()
+    if (portable?.hermesHome) {
+      return portable.hermesHome
+    }
+    if (process.env.HERMES_HOME) {
+      return path.resolve(process.env.HERMES_HOME)
+    }
+    throw new Error('Portable mode enabled but HERMES_HOME is not set')
+  }
   if (process.env.HERMES_HOME) return path.resolve(process.env.HERMES_HOME)
+  const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
   if (USER_DATA_OVERRIDE) return path.join(path.resolve(USER_DATA_OVERRIDE), 'hermes-home')
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
     const localappdata = path.join(process.env.LOCALAPPDATA, 'hermes')
@@ -1682,12 +1691,14 @@ function resolveHermesCwd() {
   // The user-configurable default project directory wins over everything,
   // followed by env hints (only honored when packaged if they point at a
   // real directory), then the home dir.
+  const portable = getPortableRuntime()
   const candidates = [
     readDefaultProjectDir(),
     process.env.HERMES_DESKTOP_CWD,
     process.env.INIT_CWD,
     IS_PACKAGED ? null : process.cwd(),
     !IS_PACKAGED ? SOURCE_REPO_ROOT : null,
+    portable?.enabled ? portable.portableHome : null,
     app.getPath('home')
   ]
 
@@ -1827,12 +1838,9 @@ function resolveHermesBackend(dashboardArgs) {
     return createActiveBackend(dashboardArgs)
   }
 
-  // 4. Existing `hermes` on PATH -- installed via install.ps1 / install.sh from
-  //    a previous tool-only setup, or pip-installed system-wide. Use it but
-  //    do NOT write a bootstrap marker; the user did this themselves and we
-  //    don't want to take ownership of an install we didn't perform.
+  // 4. Existing `hermes` on PATH -- never in portable mode (would bind to host).
   //    HERMES_DESKTOP_IGNORE_EXISTING=1 forces the bootstrap path for testing.
-  if (process.env.HERMES_DESKTOP_IGNORE_EXISTING !== '1') {
+  if (!isPortableMode() && process.env.HERMES_DESKTOP_IGNORE_EXISTING !== '1') {
     let hermesCommand = null
     const hermesOverride = process.env.HERMES_DESKTOP_HERMES
 
@@ -1882,10 +1890,8 @@ function resolveHermesBackend(dashboardArgs) {
     }
   }
 
-  // 5. Last-ditch: pip-installed hermes_cli module via system Python.
-  //    Same rationale as #4 -- the user installed this; we use it but don't
-  //    take ownership.
-  const python = findSystemPython()
+  // 5. Last-ditch: pip-installed hermes_cli module via system Python (host only).
+  const python = isPortableMode() ? null : findSystemPython()
   if (python) {
     // Same smoke-test rationale as step 4: a system Python in the
     // SUPPORTED_VERSIONS range can be registered (PEP 514) without
@@ -1951,6 +1957,15 @@ async function ensureRuntime(backend) {
   // will rewire startup to spawn the window first and route bootstrap events
   // to a renderer-side install overlay.
   if (backend.kind === 'bootstrap-needed') {
+    if (isPortableMode() && process.env.PINGHERMESAGENT_OFFLINE === '1') {
+      const portable = getPortableRuntime()
+      const hint = portable?.hermesHome
+        ? `Expected pre-baked backend at ${path.join(portable.hermesHome, 'hermes-agent', 'venv')}.`
+        : 'Portable backend path is missing.'
+      const message = `Portable mode cannot install to the host machine. ${hint} Use Start PingHermesAgent.command and a Release portable zip with data/hermes/.`
+      rememberLog(`[bootstrap] blocked in portable offline mode: ${message}`)
+      throw new Error(message)
+    }
     rememberLog('[bootstrap] no Hermes install found; starting first-launch bootstrap')
 
     // Eagerly flip the bootstrap UI state to 'active' so the renderer
