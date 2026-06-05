@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -43,12 +44,13 @@ function EnvActions({
   isRevealed,
   showReveal = true
 }: EnvActionsProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex shrink-0 items-center gap-1.5">
       {info.url && (
-        <Button asChild size="xs" title="Open provider docs" variant="ghost">
+        <Button asChild size="xs" title={t('keys.open_docs_title')} variant="ghost">
           <a href={info.url} rel="noreferrer" target="_blank">
-            Docs
+            {t('keys.docs')}
           </a>
         </Button>
       )}
@@ -56,21 +58,21 @@ function EnvActions({
         <Button
           onClick={() => onReveal(varKey)}
           size="icon-xs"
-          title={isRevealed ? 'Hide value' : 'Reveal value'}
+          title={isRevealed ? t('keys.hide_value') : t('keys.reveal_value')}
           variant="ghost"
         >
           {isRevealed ? <EyeOff /> : <Eye />}
         </Button>
       )}
       <Button onClick={onEdit} size="xs" variant="outline">
-        {info.is_set ? 'Replace' : 'Set'}
+        {info.is_set ? t('keys.replace') : t('keys.set')}
       </Button>
       {info.is_set && (
         <Button
           disabled={saving === varKey}
           onClick={() => onClear(varKey)}
           size="icon-xs"
-          title="Clear value"
+          title={t('keys.clear_value')}
           variant="ghost"
         >
           <Trash2 />
@@ -92,6 +94,7 @@ function EnvVarRow({
   onReveal,
   compact = false
 }: EnvRowProps) {
+  const { t } = useTranslation()
   const isEditing = edits[varKey] !== undefined
   const isRevealed = revealed[varKey] !== undefined
   const value = isRevealed ? revealed[varKey] : info.redacted_value
@@ -126,7 +129,7 @@ function EnvVarRow({
             <span className="font-mono text-xs font-medium">{varKey}</span>
             <Pill tone={info.is_set ? 'primary' : 'muted'}>
               {info.is_set && <Check className="size-3" />}
-              {info.is_set ? 'Set' : 'Not set'}
+              {info.is_set ? t('keys.set_status_set') : t('keys.set_status_not_set')}
             </Pill>
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{info.description}</p>
@@ -159,17 +162,17 @@ function EnvVarRow({
             autoFocus
             className={cn('min-w-56 flex-1 font-mono', CONTROL_TEXT)}
             onChange={e => setEdits(c => ({ ...c, [varKey]: e.target.value }))}
-            placeholder={info.is_set ? 'Replace current value' : 'Enter value'}
+            placeholder={info.is_set ? t('keys.placeholder_replace') : t('keys.placeholder_enter')}
             type={info.is_password ? 'password' : 'text'}
             value={edits[varKey]}
           />
           <Button disabled={saving === varKey || !edits[varKey]} onClick={() => onSave(varKey)} size="sm">
             <Save />
-            {saving === varKey ? 'Saving' : 'Save'}
+            {saving === varKey ? t('keys.saving') : t('keys.save')}
           </Button>
           <Button onClick={() => setEdits(c => withoutKey(c, varKey))} size="sm" variant="outline">
             <Codicon name="close" />
-            Cancel
+            {t('common.close')}
           </Button>
         </div>
       )}
@@ -222,6 +225,7 @@ export function KeysSettings({ query }: SearchProps) {
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   // We used to hide ~80% of rows behind a global "Show advanced" toggle, but
   // everything in this view is configuration-level — "advanced" was a poor
@@ -246,7 +250,7 @@ export function KeysSettings({ query }: SearchProps) {
           setVars(next)
         }
       } catch (err) {
-        notifyError(err, 'API keys failed to load')
+        notifyError(err, t('keys.load_failed'))
       }
     })()
 
@@ -303,9 +307,9 @@ export function KeysSettings({ query }: SearchProps) {
     const q = query.trim().toLowerCase()
 
     const labels: Record<string, string> = {
-      tool: 'Tools',
-      messaging: 'Messaging',
-      setting: 'Settings'
+      tool: t('keys.category.tool'),
+      messaging: t('keys.category.messaging'),
+      setting: t('keys.category.setting')
     }
 
     return ['tool', 'messaging', 'setting'].flatMap(cat => {
@@ -339,16 +343,16 @@ export function KeysSettings({ query }: SearchProps) {
       await setEnvVar(key, value)
       patchVar(key, { is_set: true, redacted_value: redactedValue(value) })
       clearLocalState(key)
-      notify({ kind: 'success', title: 'Credential saved', message: `${key} updated.` })
+      notify({ kind: 'success', title: t('keys.credential_saved_title'), message: t('keys.saved_message', { key }) })
     } catch (err) {
-      notifyError(err, `Failed to save ${key}`)
+      notifyError(err, t('keys.failed_save', { key }))
     } finally {
       setSaving(null)
     }
   }
 
   async function handleClear(key: string) {
-    if (!window.confirm(`Remove ${key} from .env?`)) {
+    if (!window.confirm(t('keys.confirm_remove', { key }))) {
       return
     }
 
@@ -358,9 +362,9 @@ export function KeysSettings({ query }: SearchProps) {
       await deleteEnvVar(key)
       patchVar(key, { is_set: false, redacted_value: null })
       clearLocalState(key)
-      notify({ kind: 'success', title: 'Credential removed', message: `${key} removed.` })
+      notify({ kind: 'success', title: t('keys.credential_removed_title'), message: t('keys.removed_message', { key }) })
     } catch (err) {
-      notifyError(err, `Failed to remove ${key}`)
+      notifyError(err, t('keys.failed_remove', { key }))
     } finally {
       setSaving(null)
     }
@@ -377,12 +381,12 @@ export function KeysSettings({ query }: SearchProps) {
       const result = await revealEnvVar(key)
       setRevealed(c => ({ ...c, [key]: result.value }))
     } catch (err) {
-      notifyError(err, `Failed to reveal ${key}`)
+      notifyError(err, t('keys.failed_reveal', { key }))
     }
   }
 
   if (!vars) {
-    return <LoadingState label="Loading API keys and credentials..." />
+    return <LoadingState label={t('keys.loading')} />
   }
 
   const rowProps = {
@@ -402,8 +406,8 @@ export function KeysSettings({ query }: SearchProps) {
       <div className="mb-6">
         <SectionHeading
           icon={Zap}
-          meta={`${configuredCount} of ${providerGroups.length} configured`}
-          title="LLM providers"
+          meta={t('keys.providers_meta', { configured: configuredCount, total: providerGroups.length })}
+          title={t('keys.providers_title')}
         />
         <div className="grid gap-2">
           {providerGroups.map(group => (
@@ -416,7 +420,7 @@ export function KeysSettings({ query }: SearchProps) {
         <div className="mb-6" key={group.category}>
           <SectionHeading
             icon={Settings2}
-            meta={`${group.entries.filter(([, i]) => i.is_set).length} of ${group.entries.length} set`}
+            meta={t('keys.group_meta', { set: group.entries.filter(([, i]) => i.is_set).length, total: group.entries.length })}
             title={group.label}
           />
           <div className="grid gap-2">
