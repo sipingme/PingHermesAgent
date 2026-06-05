@@ -10,6 +10,9 @@ import { ErrorBoundary } from './components/error-boundary'
 import { HapticsProvider } from './components/haptics-provider'
 import { installClipboardShim } from './lib/clipboard'
 import { ThemeProvider } from './themes/context'
+import './i18n'
+import { I18nextProvider } from 'react-i18next'
+import i18n from './i18n'
 
 installClipboardShim()
 
@@ -37,9 +40,11 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <HapticsProvider>
-            <HashRouter>
-              <App />
-            </HashRouter>
+            <I18nextProvider i18n={i18n}>
+              <HashRouter>
+                <App />
+              </HashRouter>
+            </I18nextProvider>
           </HapticsProvider>
         </ThemeProvider>
       </QueryClientProvider>

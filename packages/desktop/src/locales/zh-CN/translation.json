@@ -1,0 +1,30 @@
+{
+  "app": {
+    "title": "PingHermesAgent",
+    "search": "搜索",
+    "settings": "设置",
+    "chat": "对话",
+    "workspace": "工作区",
+    "appearance": "外观",
+    "voice": "语音",
+    "advanced": "高级"
+  },
+  "settings": {
+    "model": "模型",
+    "chat": "对话",
+    "appearance": "外观",
+    "workspace": "工作区",
+    "safety": "安全",
+    "memory": "记忆与上下文",
+    "voice": "语音",
+    "advanced": "高级",
+    "search_placeholder": {
+      "about": "关于 Hermes 桌面版",
+      "config": "搜索设置…",
+      "gateway": "网关连接…",
+      "keys": "搜索 API 密钥…",
+      "mcp": "搜索 MCP 服务…",
+      "sessions": "搜索归档会话…"
+    }
+  }
+}

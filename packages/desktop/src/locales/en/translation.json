@@ -1,0 +1,30 @@
+{
+  "app": {
+    "title": "PingHermesAgent",
+    "search": "Search",
+    "settings": "Settings",
+    "chat": "Chat",
+    "workspace": "Workspace",
+    "appearance": "Appearance",
+    "voice": "Voice",
+    "advanced": "Advanced"
+  },
+  "settings": {
+    "model": "Model",
+    "chat": "Chat",
+    "appearance": "Appearance",
+    "workspace": "Workspace",
+    "safety": "Safety",
+    "memory": "Memory & Context",
+    "voice": "Voice",
+    "advanced": "Advanced",
+    "search_placeholder": {
+      "about": "About Hermes Desktop",
+      "config": "Search settings...",
+      "gateway": "Gateway connection...",
+      "keys": "Search API keys...",
+      "mcp": "Search MCP servers...",
+      "sessions": "Search archived sessions..."
+    }
+  }
+}
