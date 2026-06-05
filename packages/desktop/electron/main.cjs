@@ -2173,6 +2173,8 @@ function fetchJson(url, token, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'X-Hermes-Session-Token': token,
+          // Newer backends expect standard Bearer tokens; keep legacy header too
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(body ? { 'Content-Length': String(body.length) } : {})
         }
       },
