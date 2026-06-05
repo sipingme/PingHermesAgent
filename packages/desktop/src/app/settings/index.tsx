@@ -1,5 +1,6 @@
 import { IconDownload, IconRefresh, IconUpload } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/hermes'
 import { triggerHaptic } from '@/lib/haptics'
@@ -32,6 +33,7 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
 ]
 
 export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChanged }: SettingsPageProps) {
+  const { t } = useTranslation()
   const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
 
   const [queries, setQueries] = useState<Record<SettingsQueryKey, string>>({
@@ -97,13 +99,13 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
 
   return (
     <OverlayView
-      closeLabel="Close settings"
+      closeLabel={t('settings.close', 'Close settings')}
       headerContent={
         <OverlaySearchInput
           containerClassName="w-[min(36rem,calc(100vw-32rem))] min-w-80"
           inputRef={searchInputRef}
           onChange={setQuery}
-          placeholder={SEARCH_PLACEHOLDER[queryKey]}
+          placeholder={t(`settings.search_placeholder.${queryKey}`)}
           value={query}
         />
       }
@@ -119,7 +121,7 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
                 active={activeView === view && !queries.config.trim()}
                 icon={s.icon}
                 key={s.id}
-                label={s.label}
+                label={t(`settings.${s.id}`, s.label)}
                 onClick={() => setActiveView(view)}
               />
             )
@@ -128,32 +130,32 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
           <OverlayNavItem
             active={activeView === 'gateway'}
             icon={Globe}
-            label="Gateway"
+            label={t('settings.gateway', 'Gateway')}
             onClick={() => setActiveView('gateway')}
           />
           <OverlayNavItem
             active={activeView === 'keys'}
             icon={KeyRound}
-            label="API Keys"
+            label={t('settings.keys', 'API Keys')}
             onClick={() => setActiveView('keys')}
           />
           <OverlayNavItem
             active={activeView === 'mcp'}
             icon={Wrench}
-            label="MCP"
+            label={t('settings.mcp', 'MCP')}
             onClick={() => setActiveView('mcp')}
           />
           <OverlayNavItem
             active={activeView === 'sessions'}
             icon={Archive}
-            label="Archived Chats"
+            label={t('settings.sessions', 'Archived Chats')}
             onClick={() => setActiveView('sessions')}
           />
           <div className="my-2 h-px bg-border/30" />
           <OverlayNavItem
             active={activeView === 'about'}
             icon={Info}
-            label="About"
+            label={t('settings.about', 'About')}
             onClick={() => setActiveView('about')}
           />
           <div className="mt-auto flex items-center gap-1 pt-2">

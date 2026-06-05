@@ -10,6 +10,7 @@
     "advanced": "Advanced"
   },
   "settings": {
+    "close": "Close settings",
     "model": "Model",
     "chat": "Chat",
     "appearance": "Appearance",
@@ -18,6 +19,11 @@
     "memory": "Memory & Context",
     "voice": "Voice",
     "advanced": "Advanced",
+    "gateway": "Gateway",
+    "keys": "API Keys",
+    "mcp": "MCP",
+    "sessions": "Archived Chats",
+    "about": "About",
     "search_placeholder": {
       "about": "About Hermes Desktop",
       "config": "Search settings...",
