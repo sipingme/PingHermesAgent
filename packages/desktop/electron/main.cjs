@@ -299,6 +299,19 @@ function startFakeBackendServer(port) {
           res.end(JSON.stringify({ sessions: [], total: 0 }))
           return
         }
+        if (url.pathname.startsWith('/api/')) {
+          const method = (req.method || 'GET').toUpperCase()
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          // Generic minimal payloads by common endpoints
+          if (method === 'GET' && /\/api\/(models|toolsets|plugins|config|updates\/status)/.test(url.pathname)) {
+            res.end(JSON.stringify({ ok: true, items: [] }))
+          } else if (method === 'GET') {
+            res.end(JSON.stringify({ ok: true }))
+          } else {
+            res.end(JSON.stringify({ ok: true }))
+          }
+          return
+        }
         res.writeHead(404, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'not_found' }))
       } catch {
