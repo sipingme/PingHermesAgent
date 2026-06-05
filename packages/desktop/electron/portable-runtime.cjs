@@ -19,6 +19,10 @@ function hasPortableMarker(dir) {
   return fs.existsSync(path.join(dir, PORTABLE_MARKER))
 }
 
+function isAppTranslocationPath(value) {
+  return process.platform === 'darwin' && String(value || '').includes(`${path.sep}AppTranslocation${path.sep}`)
+}
+
 function detectPortableRoot(execPath, resourcesPath) {
   const explicitRoot = process.env.PINGHERMESAGENT_PORTABLE_ROOT?.trim()
   if (explicitRoot && (hasPortableMarker(explicitRoot) || isTruthyEnv(process.env.PINGHERMESAGENT_PORTABLE))) {
@@ -49,10 +53,16 @@ function detectPortableRoot(execPath, resourcesPath) {
       const macosDir = path.dirname(execPath)
       if (macosDir.endsWith(`${path.sep}Contents${path.sep}MacOS`)) {
         const appBundle = path.dirname(path.dirname(macosDir))
-        return path.dirname(appBundle)
+        const portableRoot = path.dirname(appBundle)
+        if (!isAppTranslocationPath(portableRoot)) {
+          return portableRoot
+        }
       }
     }
-    return execDir
+    if (!isAppTranslocationPath(execDir)) {
+      return execDir
+    }
+    return null
   }
 
   // Legacy: marker next to .app (resources/../../..)
@@ -84,6 +94,13 @@ function bootstrapPortableRuntime(options = {}) {
 
   const execPath = options.execPath ?? process.execPath
   const resourcesPath = options.resourcesPath ?? process.resourcesPath
+  const explicitRoot = process.env.PINGHERMESAGENT_PORTABLE_ROOT?.trim()
+  const packagedMarkerDetected = Boolean(resourcesPath && fs.existsSync(path.join(resourcesPath, PACKAGED_MARKER)))
+  if (packagedMarkerDetected && isAppTranslocationPath(execPath) && !explicitRoot) {
+    throw new Error(
+      'Portable app is running from macOS App Translocation. Launch via Start PingHermesAgent.command so PINGHERMESAGENT_PORTABLE_ROOT points to the USB folder.'
+    )
+  }
   const detectedRoot = detectPortableRoot(execPath, resourcesPath)
   const enabled = shouldEnablePortableMode(detectedRoot)
 
