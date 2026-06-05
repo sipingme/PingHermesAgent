@@ -14,6 +14,12 @@ VENV_PY="$HERMES/hermes-agent/venv/bin/python"
 
 mkdir -p "$HERMES/home" "$HERMES/logs" "$DESKTOP_UD"
 
+# First launch: strip download quarantine + ad-hoc sign .so (stops repeated Gatekeeper popups).
+if [[ -x "$ROOT/scripts/clear-mac-gatekeeper.sh" ]]; then
+  bash "$ROOT/scripts/clear-mac-gatekeeper.sh" "$ROOT" || true
+fi
+
+# Retarget venv metadata when the folder moved (USB / different machine).
 if [[ -x "$ROOT/scripts/relocate-portable-hermes.sh" ]]; then
   HERMES_HOME="$HERMES" bash "$ROOT/scripts/relocate-portable-hermes.sh" || true
 fi

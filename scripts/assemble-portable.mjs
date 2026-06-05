@@ -71,14 +71,16 @@ function copyPortableTemplate(outDir) {
     }
   }
 
-  const relocateScript = join(PORTABLE_SRC, 'scripts/relocate-portable-hermes.sh');
-  const relocateFallback = join(ROOT, 'scripts/relocate-portable-hermes.sh');
-  const relocateSrc = existsSync(relocateScript) ? relocateScript : relocateFallback;
-  if (existsSync(relocateSrc)) {
-    const destDir = join(outDir, 'scripts');
-    mkdirSync(destDir, { recursive: true });
-    cpSync(relocateSrc, join(destDir, 'relocate-portable-hermes.sh'));
-    chmodSync(join(destDir, 'relocate-portable-hermes.sh'), 0o755);
+  const destDir = join(outDir, 'scripts');
+  mkdirSync(destDir, { recursive: true });
+  for (const name of ['relocate-portable-hermes.sh', 'clear-mac-gatekeeper.sh']) {
+    const fromPortable = join(PORTABLE_SRC, 'scripts', name);
+    const fromRoot = join(ROOT, 'scripts', name);
+    const src = existsSync(fromPortable) ? fromPortable : fromRoot;
+    if (existsSync(src)) {
+      cpSync(src, join(destDir, name));
+      chmodSync(join(destDir, name), 0o755);
+    }
   }
 }
 
