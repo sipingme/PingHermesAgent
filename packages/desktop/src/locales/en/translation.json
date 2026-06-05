@@ -9,6 +9,34 @@
     "voice": "Voice",
     "advanced": "Advanced"
   },
+  "about": {
+    "title": "Hermes Desktop",
+    "version": "Version {{version}}",
+    "version_unavailable": "Version unavailable",
+    "updates": "Updates",
+    "status_unsupported": "This build can't update itself from inside the app.",
+    "status_unreachable": "We couldn't reach the update server.",
+    "status_installing": "An update is currently installing.",
+    "update_available": "A new update is ready ({{count}} change{{count === 1 ? '' : 's'}} included).",
+    "status_latest": "You're on the latest version.",
+    "status_prompt": "Tap \"Check now\" to look for updates.",
+    "last_checked": "Last checked {{time}}",
+    "checking": "Checking…",
+    "check_now": "Check now",
+    "see_whats_new": "See what's new",
+    "release_notes": "Release notes",
+    "automatic_updates_title": "Automatic updates",
+    "automatic_updates_desc": "Hermes checks for updates automatically in the background and lets you know when one is ready.",
+    "branch": "Branch",
+    "commit": "Commit",
+    "relative": {
+      "never": "never",
+      "just_now": "just now",
+      "minutes_ago": "{{count}} min ago",
+      "hours_ago": "{{count}} hours ago",
+      "days_ago": "{{count}} days ago"
+    }
+  },
   "settings": {
     "close": "Close settings",
     "model": "Model",

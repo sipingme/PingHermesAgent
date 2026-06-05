@@ -9,6 +9,34 @@
     "voice": "语音",
     "advanced": "高级"
   },
+  "about": {
+    "title": "Hermes 桌面版",
+    "version": "版本 {{version}}",
+    "version_unavailable": "版本不可用",
+    "updates": "更新",
+    "status_unsupported": "此构建无法在应用内自我更新。",
+    "status_unreachable": "无法连接到更新服务器。",
+    "status_installing": "正在安装更新…",
+    "update_available": "发现新版本（包含 {{count}} 处变更）。",
+    "status_latest": "当前已是最新版本。",
+    "status_prompt": "点击“立即检查”以获取更新。",
+    "last_checked": "上次检查：{{time}}",
+    "checking": "正在检查…",
+    "check_now": "立即检查",
+    "see_whats_new": "查看更新内容",
+    "release_notes": "发行说明",
+    "automatic_updates_title": "自动更新",
+    "automatic_updates_desc": "Hermes 会在后台自动检查更新，并在可用时通知你。",
+    "branch": "分支",
+    "commit": "提交",
+    "relative": {
+      "never": "从未",
+      "just_now": "刚刚",
+      "minutes_ago": "{{count}} 分钟前",
+      "hours_ago": "{{count}} 小时前",
+      "days_ago": "{{count}} 天前"
+    }
+  },
   "settings": {
     "close": "关闭设置",
     "model": "模型",
