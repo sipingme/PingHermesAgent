@@ -14,6 +14,13 @@ VENV_PY="$HERMES/hermes-agent/venv/bin/python"
 
 mkdir -p "$HERMES/home" "$HERMES/logs" "$DESKTOP_UD"
 
+if [[ -x "$ROOT/scripts/relocate-portable-hermes.sh" ]]; then
+  HERMES_HOME="$HERMES" bash "$ROOT/scripts/relocate-portable-hermes.sh" || true
+fi
+if [[ -d "$HERMES/python" ]]; then
+  export PYTHONHOME="$HERMES/python"
+fi
+
 if [[ ! -x "$APP" ]]; then
   osascript -e 'display alert "PingHermesAgent 未找到" message "请将 PingHermesAgent.app 放在与本脚本同一目录下。\n\n详见 README.txt"' as critical 2>/dev/null || {
     echo "Error: PingHermesAgent.app not found in $ROOT" >&2

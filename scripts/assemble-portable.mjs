@@ -70,6 +70,16 @@ function copyPortableTemplate(outDir) {
       chmodSync(path, 0o755);
     }
   }
+
+  const relocateScript = join(PORTABLE_SRC, 'scripts/relocate-portable-hermes.sh');
+  const relocateFallback = join(ROOT, 'scripts/relocate-portable-hermes.sh');
+  const relocateSrc = existsSync(relocateScript) ? relocateScript : relocateFallback;
+  if (existsSync(relocateSrc)) {
+    const destDir = join(outDir, 'scripts');
+    mkdirSync(destDir, { recursive: true });
+    cpSync(relocateSrc, join(destDir, 'relocate-portable-hermes.sh'));
+    chmodSync(join(destDir, 'relocate-portable-hermes.sh'), 0o755);
+  }
 }
 
 function zipDirectory(sourceDir, zipPath) {
@@ -119,6 +129,12 @@ function prebakeBackend(outHermesHome) {
     env,
     shell: process.platform === 'win32',
   });
+  execFileSync(join(ROOT, 'scripts/relocate-portable-hermes.sh'), {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, HERMES_HOME: outHermesHome },
+    shell: true,
+  });
   assertPrebakedBackend(outHermesHome);
 }
 
@@ -127,7 +143,14 @@ function assertPrebakedBackend(outHermesHome) {
   if (!existsSync(venvPy)) {
     throw new Error(`[assemble-portable] Prebake failed: missing ${venvPy}`);
   }
-  execFileSync(venvPy, ['-c', 'import hermes_cli'], { stdio: 'pipe' });
+  const hermesPython = join(outHermesHome, 'python');
+  execFileSync(venvPy, ['-c', 'import hermes_cli'], {
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      ...(existsSync(hermesPython) ? { PYTHONHOME: hermesPython } : {}),
+    },
+  });
   const marker = join(outHermesHome, 'hermes-agent/.hermes-bootstrap-complete');
   if (!existsSync(marker)) {
     throw new Error(`[assemble-portable] Prebake failed: missing ${marker}`);
