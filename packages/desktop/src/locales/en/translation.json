@@ -26,5 +26,20 @@
       "mcp": "Search MCP servers...",
       "sessions": "Search archived sessions..."
     }
+  },
+  "bootFailure": {
+    "title": "Hermes couldn't start",
+    "subtitle": "The background gateway didn't come up. Try one of the recovery steps below — nothing here deletes your chats or settings.",
+    "retry": "Retry",
+    "repair": "Repair install",
+    "useLocal": "Use local gateway",
+    "openLogs": "Open logs",
+    "repairNote": "Repair re-runs the installer and can take a few minutes on a fresh machine.",
+    "showLogs": "Show recent logs",
+    "hideLogs": "Hide recent logs"
+  },
+  "lang": {
+    "english": "English",
+    "chinese": "中文"
   }
 }

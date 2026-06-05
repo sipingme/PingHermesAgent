@@ -1,5 +1,7 @@
 import { useStore } from '@nanostores/react'
 import type { ComponentProps, ReactNode } from 'react'
+import i18n from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { Codicon } from '@/components/ui/codicon'
@@ -57,6 +59,7 @@ export function TitlebarControls({
   const hapticsMuted = useStore($hapticsMuted)
   const fileBrowserOpen = useStore($fileBrowserOpen)
   const sidebarOpen = useStore($sidebarOpen)
+  const { t } = useTranslation()
 
   const toggleHaptics = () => {
     if (!hapticsMuted) {
@@ -113,6 +116,26 @@ export function TitlebarControls({
       id: 'haptics',
       label: hapticsMuted ? 'Unmute haptics' : 'Mute haptics',
       onSelect: toggleHaptics
+    },
+    {
+      icon: <span className="text-xs font-medium">中</span>,
+      id: 'lang-zh',
+      label: t('lang.chinese', '中文'),
+      onSelect: () => {
+        triggerHaptic('tap')
+        void i18n.changeLanguage('zh-CN')
+      },
+      title: t('lang.chinese', '中文')
+    },
+    {
+      icon: <span className="text-[0.72rem] font-medium">EN</span>,
+      id: 'lang-en',
+      label: t('lang.english', 'English'),
+      onSelect: () => {
+        triggerHaptic('tap')
+        void i18n.changeLanguage('en')
+      },
+      title: t('lang.english', 'English')
     },
     {
       icon: <Codicon name="settings-gear" />,
