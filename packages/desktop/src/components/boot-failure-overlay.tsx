@@ -19,7 +19,7 @@ export function BootFailureOverlay() {
   const [busy, setBusy] = useState<BusyAction>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [showLogs, setShowLogs] = useState(false)
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const visible = Boolean(boot.error) && !boot.running
   // While first-run onboarding owns the picker/flow we let it surface its own
@@ -71,9 +71,19 @@ export function BootFailureOverlay() {
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <AlertTriangle className="size-5" />
           </div>
-          <div>
-            <h2 className="text-[0.9375rem] font-semibold tracking-tight">{t('bootFailure.title')}</h2>
-            <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">{t('bootFailure.subtitle')}</p>
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[0.9375rem] font-semibold tracking-tight">{t('bootFailure.title')}</h2>
+              <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">{t('bootFailure.subtitle')}</p>
+            </div>
+            <div className="flex shrink-0 items-start gap-1">
+              <Button onClick={() => void i18n.changeLanguage('zh-CN')} size="sm" variant="ghost">
+                {t('lang.chinese', '中文')}
+              </Button>
+              <Button onClick={() => void i18n.changeLanguage('en')} size="sm" variant="ghost">
+                {t('lang.english', 'English')}
+              </Button>
+            </div>
           </div>
         </div>
 
