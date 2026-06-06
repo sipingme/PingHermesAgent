@@ -14,7 +14,7 @@ VENV_PY="$HERMES/hermes-agent/venv/bin/python"
 
 mkdir -p "$HERMES/home" "$HERMES/logs" "$DESKTOP_UD"
 
-# First launch: strip download quarantine + ad-hoc sign .so (stops repeated Gatekeeper popups).
+# First launch: strip quarantine on app + venv only (~1 min on USB; not whole 10GB tree).
 if [[ -x "$ROOT/scripts/clear-mac-gatekeeper.sh" ]]; then
   bash "$ROOT/scripts/clear-mac-gatekeeper.sh" "$ROOT" || true
 fi
