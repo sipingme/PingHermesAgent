@@ -1,5 +1,7 @@
 import { useStore } from '@nanostores/react'
 import type { ComponentProps, ReactNode } from 'react'
+import i18n from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { Codicon } from '@/components/ui/codicon'
@@ -57,6 +59,7 @@ export function TitlebarControls({
   const hapticsMuted = useStore($hapticsMuted)
   const fileBrowserOpen = useStore($fileBrowserOpen)
   const sidebarOpen = useStore($sidebarOpen)
+  const { t } = useTranslation()
 
   const toggleHaptics = () => {
     if (!hapticsMuted) {
@@ -113,6 +116,26 @@ export function TitlebarControls({
       id: 'haptics',
       label: hapticsMuted ? 'Unmute haptics' : 'Mute haptics',
       onSelect: toggleHaptics
+    },
+    {
+      icon: <span className="text-xs font-medium">中</span>,
+      id: 'lang-zh',
+      label: t('lang.chinese', '中文'),
+      onSelect: () => {
+        triggerHaptic('tap')
+        void i18n.changeLanguage('zh-CN')
+      },
+      title: t('lang.chinese', '中文')
+    },
+    {
+      icon: <span className="text-[0.72rem] font-medium">EN</span>,
+      id: 'lang-en',
+      label: t('lang.english', 'English'),
+      onSelect: () => {
+        triggerHaptic('tap')
+        void i18n.changeLanguage('en')
+      },
+      title: t('lang.english', 'English')
     },
     {
       icon: <Codicon name="settings-gear" />,
@@ -178,14 +201,15 @@ export function TitlebarControls({
 }
 
 function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const { t } = useTranslation()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Profiles"
+          aria-label={t('profiles.title')}
           className={cn(titlebarButtonClass, 'grid place-items-center bg-transparent select-none [&_svg]:size-4')}
           onPointerDown={event => event.stopPropagation()}
-          title="Profiles"
+          title={t('profiles.title')}
           type="button"
         >
           <Codicon name="account" />
@@ -193,9 +217,9 @@ function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavig
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64" sideOffset={8}>
         <DropdownMenuLabel>
-          <div className="text-sm font-medium text-foreground">Profiles</div>
+          <div className="text-sm font-medium text-foreground">{t('profiles.title')}</div>
           <div className="mt-1 text-xs font-normal leading-4 text-muted-foreground">
-            Advanced Hermes environments for separate personas, config, skills, and SOUL.md.
+            {t('profiles.description')}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -206,7 +230,7 @@ function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavig
           }}
         >
           <Codicon name="account" size="1rem" />
-          <span>Manage profiles</span>
+          <span>{t('profiles.manage')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

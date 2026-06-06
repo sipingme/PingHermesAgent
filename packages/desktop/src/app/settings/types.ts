@@ -29,6 +29,7 @@ export interface ProviderGroup {
 export interface DesktopConfigSection {
   id: string
   label: string
+  description?: string
   icon: IconComponent
   keys: string[]
 }

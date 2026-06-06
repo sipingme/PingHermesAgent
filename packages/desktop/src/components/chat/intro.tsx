@@ -1,4 +1,5 @@
 import { type CSSProperties, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
 
@@ -155,6 +156,23 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
+  const { t } = useTranslation()
+
+  // Determine personality group and the index of the chosen line to build a stable i18n key
+  const personalityKey = normalizeKey(personality)
+  const groupCopies = NEUTRAL_PERSONALITIES.has(personalityKey)
+    ? INTRO_COPY_BY_PERSONALITY[personalityKey] || neutralCopy()
+    : INTRO_COPY_BY_PERSONALITY[personalityKey] || fallbackCopyForPersonality(personalityKey)
+  const bodyIndex = Math.max(0, groupCopies.indexOf(copy)) + 1 // 1-based
+
+  // Back-compat for any explicitly mapped lines
+  const legacyBodyMap: Record<string, string> = {
+    "drop an error, a goal, or a whole folder. i'll tidy it up with lots of love and a clean commit message!":
+      'chat.intro.kawaii.drop_error_goal_folder'
+  }
+
+  const keyByGroupIndex = `chat.intro.bodies.${personalityKey}.${bodyIndex}`
+  const translatedBody = t(keyByGroupIndex, legacyBodyMap[copy.body] ? t(legacyBodyMap[copy.body]) : copy.body)
 
   return (
     <div
@@ -174,7 +192,7 @@ export function Intro({ personality, seed }: IntroProps) {
           <span aria-hidden="true">HERMES AGENT</span>
         </p>
 
-        <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
+        <p className="m-0 text-center leading-normal tracking-tight">{translatedBody}</p>
       </div>
     </div>
   )

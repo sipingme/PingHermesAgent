@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -25,16 +26,19 @@ import type { ChatBarState } from './types'
 
 const PROMPT_SNIPPETS: readonly PromptSnippet[] = [
   {
+    key: 'code_review',
     description: 'Audit the current change for regressions, dropped edge cases, and missing tests.',
     label: 'Code review',
     text: 'Please review this for bugs, regressions, and missing tests.'
   },
   {
+    key: 'implementation_plan',
     description: 'Outline an approach before touching code so the diff stays focused.',
     label: 'Implementation plan',
     text: 'Please make a concise implementation plan before changing code.'
   },
   {
+    key: 'explain_this',
     description: 'Walk through how the selected code works and link to the key files.',
     label: 'Explain this',
     text: 'Please explain how this works and point me to the key files.'
@@ -50,6 +54,7 @@ export function ContextMenu({
   onPickFolders,
   onPickImages
 }: ContextMenuProps) {
+  const { t } = useTranslation()
   // Prompt snippets used to be a Radix submenu. That submenu didn't open
   // reliably when the parent menu was positioned at the bottom of the
   // window (composer "+" anchor), so we promoted it to a real Dialog —
@@ -77,35 +82,34 @@ export function ContextMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-60" side="top" sideOffset={10}>
           <DropdownMenuLabel className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/85">
-            Attach
+            {t('composer.attach_label')}
           </DropdownMenuLabel>
           <ContextMenuItem disabled={!onPickFiles} icon={FileText} onSelect={onPickFiles}>
-            Files…
+            {t('composer.files')}
           </ContextMenuItem>
           <ContextMenuItem disabled={!onPickFolders} icon={FolderOpen} onSelect={onPickFolders}>
-            Folder…
+            {t('composer.folder')}
           </ContextMenuItem>
           <ContextMenuItem disabled={!onPickImages} icon={ImageIcon} onSelect={onPickImages}>
-            Images…
+            {t('composer.images')}
           </ContextMenuItem>
           <ContextMenuItem disabled={!onPasteClipboardImage} icon={Clipboard} onSelect={onPasteClipboardImage}>
-            Paste image
+            {t('composer.paste_image')}
           </ContextMenuItem>
           <ContextMenuItem icon={Link} onSelect={onOpenUrlDialog}>
-            URL…
+            {t('composer.url')}
           </ContextMenuItem>
 
           <DropdownMenuSeparator />
 
           <ContextMenuItem icon={MessageSquareText} onSelect={() => setSnippetsOpen(true)}>
-            Prompt snippets…
+            {t('composer.prompt_snippets_menu')}
           </ContextMenuItem>
 
           <DropdownMenuSeparator />
 
           <div className="px-2 py-1 text-[0.7rem] text-muted-foreground/80">
-            Tip: type <kbd className="rounded bg-muted/70 px-1 py-px font-mono text-[0.65rem]">@</kbd> to reference files
-            inline.
+            {t('composer.tip_reference_files')}
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -126,16 +130,17 @@ function PromptSnippetsDialog({
   open,
   snippets
 }: PromptSnippetsDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-md gap-3">
         <DialogHeader>
-          <DialogTitle>Prompt snippets</DialogTitle>
-          <DialogDescription>Pick a starter prompt to drop into the composer.</DialogDescription>
+          <DialogTitle>{t('composer.prompt_snippets_title')}</DialogTitle>
+          <DialogDescription>{t('composer.prompt_snippets_desc')}</DialogDescription>
         </DialogHeader>
         <ul className="grid gap-1">
           {snippets.map(snippet => (
-            <li key={snippet.label}>
+            <li key={snippet.key}>
               <button
                 className="group/snippet flex w-full cursor-pointer items-start gap-2.5 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-(--ui-stroke-tertiary) hover:bg-(--ui-control-hover-background) focus-visible:border-(--ui-stroke-tertiary) focus-visible:bg-(--ui-control-hover-background) focus-visible:outline-none"
                 onClick={() => {
@@ -146,9 +151,9 @@ function PromptSnippetsDialog({
               >
                 <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-(--ui-text-tertiary) group-hover/snippet:text-foreground" />
                 <span className="grid min-w-0 gap-0.5">
-                  <span className="text-sm font-medium text-foreground">{snippet.label}</span>
+                  <span className="text-sm font-medium text-foreground">{t(`composer.snippets.${snippet.key}.label`, snippet.label)}</span>
                   <span className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                    {snippet.description}
+                    {t(`composer.snippets.${snippet.key}.desc`, snippet.description)}
                   </span>
                 </span>
               </button>
@@ -192,6 +197,7 @@ interface ContextMenuProps {
 }
 
 interface PromptSnippet {
+  key: string
   description: string
   label: string
   text: string

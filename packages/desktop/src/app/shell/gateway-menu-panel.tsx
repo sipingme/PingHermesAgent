@@ -1,4 +1,5 @@
 import { IconLayoutDashboard } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
 
 import { StatusDot, type StatusTone } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
@@ -24,7 +25,14 @@ const PLATFORM_TONE: Record<string, StatusTone> = {
   fatal: 'bad'
 }
 
-const prettyState = (state: string) => state.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+const prettyState = (state: string, t?: (key: string) => string) => {
+  const key = `gateway.state.${state}`
+  if (t) {
+    const translated = t(key)
+    if (translated !== key) return translated
+  }
+  return state.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+}
 
 // Strip leading "YYYY-MM-DD HH:MM:SS,mmm " and "[runtime_id] " prefixes from
 // log lines so they don't dominate the display. Full text preserved on hover.
@@ -39,23 +47,24 @@ export function GatewayMenuPanel({
   onOpenSystem,
   statusSnapshot
 }: GatewayMenuPanelProps) {
+  const { t } = useTranslation()
   const gatewayOpen = gatewayState === 'open'
   const gatewayConnecting = gatewayState === 'connecting'
   const inferenceReady = gatewayOpen && inferenceStatus?.ready === true
 
   const connectionLabel = gatewayOpen
-    ? 'Connected'
+    ? t('gateway.state.connected')
     : gatewayConnecting
-      ? 'Connecting'
-      : prettyState(gatewayState || 'offline')
+      ? t('gateway.state.connecting')
+      : prettyState(gatewayState || 'offline', t)
 
   const inferenceLabel = gatewayOpen
     ? inferenceStatus?.ready
-      ? 'Inference ready'
+      ? t('gateway.inference_ready')
       : inferenceStatus
-        ? 'Inference not ready'
-        : 'Checking inference'
-    : 'Disconnected'
+        ? t('gateway.inference_not_ready')
+        : t('gateway.checking_inference')
+    : t('gateway.disconnected')
 
   const platforms = Object.entries(statusSnapshot?.gateway_platforms || {}).sort(([l], [r]) => l.localeCompare(r))
   const recentLogs = logLines.slice(-5)
@@ -69,7 +78,7 @@ export function GatewayMenuPanel({
           ) : (
             <AlertCircle className={cn('size-3.5', gatewayOpen ? 'text-amber-600' : 'text-destructive')} />
           )}
-          <span className="font-medium">Gateway</span>
+          <span className="font-medium">{t('gateway.title')}</span>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <StatusDot tone={inferenceReady ? 'good' : gatewayOpen ? 'warn' : 'bad'} />
             {inferenceLabel}
@@ -77,11 +86,11 @@ export function GatewayMenuPanel({
         </div>
         <div className="flex items-center">
           <Button
-            aria-label="Open system panel"
+            aria-label={t('gateway.open_system_panel')}
             className="size-7 text-muted-foreground hover:text-foreground"
             onClick={onOpenSystem}
             size="icon-sm"
-            title="Open system panel"
+            title={t('gateway.open_system_panel')}
             variant="ghost"
           >
             <IconLayoutDashboard />
@@ -90,13 +99,13 @@ export function GatewayMenuPanel({
       </div>
 
       <div className="border-t border-border/50 px-3 py-2 text-xs text-muted-foreground">
-        <div>Connection: {connectionLabel}</div>
+        <div>{t('gateway.connection', { state: connectionLabel })}</div>
         {inferenceStatus?.reason && <div className="mt-1 line-clamp-3">{inferenceStatus.reason}</div>}
       </div>
 
       {recentLogs.length > 0 && (
         <div className="border-t border-border/50 px-3 py-2">
-          <SectionLabel>Recent activity</SectionLabel>
+          <SectionLabel>{t('gateway.recent_activity')}</SectionLabel>
           <ul className="mt-1.5 space-y-0.5">
             {recentLogs.map((line, index) => (
               <li
@@ -113,21 +122,21 @@ export function GatewayMenuPanel({
             onClick={onOpenSystem}
             type="button"
           >
-            View all logs →
+            {t('gateway.view_all_logs')} →
           </button>
         </div>
       )}
 
       {platforms.length > 0 && (
         <div className="border-t border-border/50 px-3 py-2">
-          <SectionLabel>Messaging platforms</SectionLabel>
+          <SectionLabel>{t('gateway.messaging_platforms')}</SectionLabel>
           <ul className="mt-1.5 space-y-1">
             {platforms.map(([name, platform]) => (
               <li className="flex items-center justify-between gap-2 text-xs" key={name}>
                 <span className="truncate capitalize">{name}</span>
                 <span className="flex items-center gap-1.5 text-[0.66rem] text-muted-foreground">
                   <StatusDot tone={PLATFORM_TONE[platform.state] || 'muted'} />
-                  {prettyState(platform.state)}
+                  {prettyState(platform.state, t)}
                 </span>
               </li>
             ))}

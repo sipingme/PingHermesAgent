@@ -60,6 +60,8 @@ interface ToolMeta {
   tone: ToolTone
 }
 
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string
+
 export interface MessageRunningStateSlice {
   message: {
     status?: {
@@ -72,39 +74,39 @@ export interface MessageRunningStateSlice {
 }
 
 const TOOL_META: Record<string, ToolMeta> = {
-  browser_click: { done: 'Clicked page element', pending: 'Clicking page element', icon: 'globe', tone: 'browser' },
-  browser_fill: { done: 'Filled form field', pending: 'Filling form field', icon: 'globe', tone: 'browser' },
-  browser_navigate: { done: 'Opened page', pending: 'Opening page', icon: 'globe', tone: 'browser' },
+  browser_click: { done: 'tool.meta.browser_click.done', pending: 'tool.meta.browser_click.pending', icon: 'globe', tone: 'browser' },
+  browser_fill: { done: 'tool.meta.browser_fill.done', pending: 'tool.meta.browser_fill.pending', icon: 'globe', tone: 'browser' },
+  browser_navigate: { done: 'tool.meta.browser_navigate.done', pending: 'tool.meta.browser_navigate.pending', icon: 'globe', tone: 'browser' },
   browser_snapshot: {
-    done: 'Captured page snapshot',
-    pending: 'Capturing page snapshot',
+    done: 'tool.meta.browser_snapshot.done',
+    pending: 'tool.meta.browser_snapshot.pending',
     icon: 'globe',
     tone: 'browser'
   },
   browser_take_screenshot: {
-    done: 'Captured screenshot',
-    pending: 'Capturing screenshot',
+    done: 'tool.meta.browser_take_screenshot.done',
+    pending: 'tool.meta.browser_take_screenshot.pending',
     icon: 'file-media',
     tone: 'browser'
   },
-  browser_type: { done: 'Typed on page', pending: 'Typing on page', icon: 'globe', tone: 'browser' },
-  edit_file: { done: 'Edited file', pending: 'Editing file', icon: 'edit', tone: 'file' },
-  execute_code: { done: 'Ran code', pending: 'Running code', icon: 'terminal', tone: 'terminal' },
-  image_generate: { done: 'Generated image', pending: 'Generating image', icon: 'file-media', tone: 'image' },
-  list_files: { done: 'Listed files', pending: 'Listing files', icon: 'files', tone: 'file' },
-  read_file: { done: 'Read file', pending: 'Reading file', icon: 'file', tone: 'file' },
-  search_files: { done: 'Searched files', pending: 'Searching files', icon: 'search', tone: 'file' },
+  browser_type: { done: 'tool.meta.browser_type.done', pending: 'tool.meta.browser_type.pending', icon: 'globe', tone: 'browser' },
+  edit_file: { done: 'tool.meta.edit_file.done', pending: 'tool.meta.edit_file.pending', icon: 'edit', tone: 'file' },
+  execute_code: { done: 'tool.meta.execute_code.done', pending: 'tool.meta.execute_code.pending', icon: 'terminal', tone: 'terminal' },
+  image_generate: { done: 'tool.meta.image_generate.done', pending: 'tool.meta.image_generate.pending', icon: 'file-media', tone: 'image' },
+  list_files: { done: 'tool.meta.list_files.done', pending: 'tool.meta.list_files.pending', icon: 'files', tone: 'file' },
+  read_file: { done: 'tool.meta.read_file.done', pending: 'tool.meta.read_file.pending', icon: 'file', tone: 'file' },
+  search_files: { done: 'tool.meta.search_files.done', pending: 'tool.meta.search_files.pending', icon: 'search', tone: 'file' },
   session_search_recall: {
-    done: 'Searched session history',
-    pending: 'Searching session history',
+    done: 'tool.meta.session_search_recall.done',
+    pending: 'tool.meta.session_search_recall.pending',
     icon: 'search',
     tone: 'agent'
   },
-  terminal: { done: 'Ran command', pending: 'Running command', icon: 'terminal', tone: 'terminal' },
-  todo: { done: 'Updated todos', pending: 'Updating todos', icon: 'tools', tone: 'agent' },
-  web_extract: { done: 'Read webpage', pending: 'Reading webpage', icon: 'globe', tone: 'web' },
-  web_search: { done: 'Searched web', pending: 'Searching web', icon: 'search', tone: 'web' },
-  write_file: { done: 'Edited file', pending: 'Editing file', icon: 'edit', tone: 'file' }
+  terminal: { done: 'tool.meta.terminal.done', pending: 'tool.meta.terminal.pending', icon: 'terminal', tone: 'terminal' },
+  todo: { done: 'tool.meta.todo.done', pending: 'tool.meta.todo.pending', icon: 'tools', tone: 'agent' },
+  web_extract: { done: 'tool.meta.web_extract.done', pending: 'tool.meta.web_extract.pending', icon: 'globe', tone: 'web' },
+  web_search: { done: 'tool.meta.web_search.done', pending: 'tool.meta.web_search.pending', icon: 'search', tone: 'web' },
+  write_file: { done: 'tool.meta.write_file.done', pending: 'tool.meta.write_file.pending', icon: 'edit', tone: 'file' }
 }
 
 const INLINE_CODE_SPLIT_RE = /(`[^`\n]+`)/g
@@ -131,22 +133,59 @@ const PREFIX_META: { icon?: string; prefix: string; tone: ToolTone; verb: string
   { prefix: 'web_', verb: 'Web', icon: 'globe', tone: 'web' }
 ]
 
-function toolMeta(name: string): ToolMeta {
+function toolMeta(name: string, t?: TranslateFn): ToolMeta {
   if (TOOL_META[name]) {
-    return TOOL_META[name]
+    const meta = TOOL_META[name]
+    if (!t) {
+      return meta
+    }
+    return {
+      done: t(meta.done),
+      icon: meta.icon,
+      pending: t(meta.pending),
+      tone: meta.tone
+    }
+  }
+
+  if (t) {
+    const doneKey = `tool.meta.${name}.done`
+    const pendingKey = `tool.meta.${name}.pending`
+    const doneValue = t(doneKey)
+    if (doneValue !== doneKey) {
+      return {
+        done: doneValue,
+        pending: t(pendingKey),
+        tone: 'default'
+      }
+    }
   }
 
   const action = titleForTool(name)
   const prefix = PREFIX_META.find(p => name.startsWith(p.prefix))
 
+  if (!t) {
+    return prefix
+      ? {
+          done: `${prefix.verb} ${action}`,
+          pending: `Running ${prefix.verb.toLowerCase()} ${action.toLowerCase()}`,
+          icon: prefix.icon,
+          tone: prefix.tone
+        }
+      : { done: action, pending: `Running ${action.toLowerCase()}`, tone: 'default' }
+  }
+
   return prefix
     ? {
-        done: `${prefix.verb} ${action}`,
-        pending: `Running ${prefix.verb.toLowerCase()} ${action.toLowerCase()}`,
+        done: t('tool.meta.prefix.done', { verb: prefix.verb, action }),
+        pending: t('tool.meta.prefix.pending', { verb: prefix.verb.toLowerCase(), action: action.toLowerCase() }),
         icon: prefix.icon,
         tone: prefix.tone
       }
-    : { done: action, pending: `Running ${action.toLowerCase()}`, tone: 'default' }
+    : {
+        done: t('tool.meta.fallback.done', { action }),
+        pending: t('tool.meta.fallback.pending', { action: action.toLowerCase() }),
+        tone: 'default'
+      }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -865,7 +904,7 @@ function minimalValueSummary(value: unknown): string {
   return ''
 }
 
-function fallbackDetailText(args: unknown, result: unknown): string {
+function fallbackDetailText(args: unknown, result: unknown, t?: TranslateFn): string {
   const argContext = contextValue(args)
   const resultContext = contextValue(result)
 
@@ -878,16 +917,17 @@ function fallbackDetailText(args: unknown, result: unknown): string {
   }
 
   if (result !== undefined) {
-    return formatToolResultSummary(result) || minimalValueSummary(result)
+    return formatToolResultSummary(result, t) || minimalValueSummary(result)
   }
 
-  return formatToolResultSummary(args) || minimalValueSummary(args)
+  return formatToolResultSummary(args, t) || minimalValueSummary(args)
 }
 
 function toolSubtitle(
   part: ToolPart,
   argsRecord: Record<string, unknown>,
-  resultRecord: Record<string, unknown>
+  resultRecord: Record<string, unknown>,
+  t?: TranslateFn
 ): string {
   const toolName = part.toolName
 
@@ -897,23 +937,23 @@ function toolSubtitle(
       firstStringField(resultRecord, ['url']) ||
       findFirstUrl(argsRecord, resultRecord)
 
-    return url ? hostnameOf(url) : 'Navigated in browser'
+    return url ? hostnameOf(url) : (t ? t('tool.subtitle.browser_navigate') : 'Navigated in browser')
   }
 
   if (toolName === 'browser_snapshot') {
     const snapshot = firstStringField(resultRecord, ['snapshot'])
 
-    return snapshot ? summarizeBrowserSnapshot(snapshot) : 'Captured a browser accessibility snapshot'
+    return snapshot ? summarizeBrowserSnapshot(snapshot) : (t ? t('tool.subtitle.browser_snapshot') : 'Captured a browser accessibility snapshot')
   }
 
   if (toolName === 'browser_click') {
     const clicked = firstStringField(resultRecord, ['clicked']) || firstStringField(argsRecord, ['ref', 'target'])
 
     if (!clicked) {
-      return 'Clicked on page'
+      return t ? t('tool.subtitle.browser_click') : 'Clicked on page'
     }
 
-    return clicked.startsWith('@') ? `Clicked page element (internal ref ${clicked})` : `Clicked ${clicked}`
+    return clicked.startsWith('@') ? (t ? t('tool.subtitle.browser_click_ref', { clicked }) : `Clicked page element (internal ref ${clicked})`) : (t ? t('tool.subtitle.browser_click_target', { clicked }) : `Clicked ${clicked}`)
   }
 
   if (toolName === 'browser_fill' || toolName === 'browser_type') {
@@ -921,15 +961,14 @@ function toolSubtitle(
     const value = firstStringField(argsRecord, ['value', 'text'])
 
     return (
-      [field && `Field: ${field}`, value && `Value: ${compactPreview(value, 42)}`].filter(Boolean).join(' · ') ||
-      'Filled page input'
+      [field && (t ? t('tool.subtitle.browser_field', { field }) : `Field: ${field}`), value && (t ? t('tool.subtitle.browser_value', { value: compactPreview(value, 42) }) : `Value: ${compactPreview(value, 42)}`)].filter(Boolean).join(' · ') || (t ? t('tool.subtitle.browser_fill') : 'Filled page input')
     )
   }
 
   if (toolName === 'web_search') {
     const query = firstStringField(argsRecord, ['search_term', 'query']) || contextValue(argsRecord)
 
-    return query ? `Query: ${query}` : 'Queried web sources'
+    return query ? (t ? t('tool.subtitle.web_search_query', { query }) : `Query: ${query}`) : (t ? t('tool.subtitle.web_search') : 'Queried web sources')
   }
 
   if (toolName === 'terminal' || toolName === 'execute_code') {
@@ -954,7 +993,7 @@ function toolSubtitle(
 
     const command = firstStringField(argsRecord, ['command', 'code']) || contextValue(argsRecord)
 
-    return command ? compactPreview(command, 120) : 'Executed command'
+    return command ? compactPreview(command, 120) : (t ? t('tool.subtitle.executed_command') : 'Executed command')
   }
 
   if (toolName === 'read_file' || toolName === 'write_file' || toolName === 'edit_file') {
@@ -974,28 +1013,41 @@ function toolSubtitle(
       firstStringField(resultRecord, ['url']) ||
       findFirstUrl(argsRecord, resultRecord)
 
-    return url ? hostnameOf(url) : 'Fetched webpage'
+    return url ? hostnameOf(url) : (t ? t('tool.subtitle.web_extract') : 'Fetched webpage')
   }
 
   return (
-    compactPreview(formatToolResultSummary(part.result), 120) ||
+    compactPreview(formatToolResultSummary(part.result, t), 120) ||
     compactPreview(resultRecord, 120) ||
     compactPreview(argsRecord, 120) ||
-    fallbackDetailText(argsRecord, resultRecord)
+    fallbackDetailText(argsRecord, resultRecord, t)
   )
 }
 
-function toolDetailLabel(toolName: string): string {
+function toolDetailLabel(toolName: string, t?: TranslateFn): string {
+  if (!t) {
+    if (toolName === 'web_search') {
+      return 'Details'
+    }
+    if (toolName === 'browser_snapshot') {
+      return 'Snapshot summary'
+    }
+    if (toolName === 'terminal' || toolName === 'execute_code') {
+      return 'Command output'
+    }
+    return ''
+  }
+
   if (toolName === 'web_search') {
-    return 'Details'
+    return t('tool.detail_label.details')
   }
 
   if (toolName === 'browser_snapshot') {
-    return 'Snapshot summary'
+    return t('tool.detail_label.snapshot_summary')
   }
 
   if (toolName === 'terminal' || toolName === 'execute_code') {
-    return 'Command output'
+    return t('tool.detail_label.command_output')
   }
 
   return ''
@@ -1004,12 +1056,13 @@ function toolDetailLabel(toolName: string): string {
 function toolDetailText(
   part: ToolPart,
   argsRecord: Record<string, unknown>,
-  resultRecord: Record<string, unknown>
+  resultRecord: Record<string, unknown>,
+  t?: TranslateFn
 ): string {
   if (part.toolName === 'browser_snapshot') {
     const snapshot = firstStringField(resultRecord, ['snapshot'])
 
-    return snapshot ? summarizeBrowserSnapshot(snapshot) : fallbackDetailText(argsRecord, resultRecord)
+    return snapshot ? summarizeBrowserSnapshot(snapshot) : fallbackDetailText(argsRecord, resultRecord, t)
   }
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
@@ -1080,7 +1133,7 @@ function toolDetailText(
   return fallbackDetailText(argsRecord, resultRecord)
 }
 
-export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string; text: string } {
+export function toolCopyPayload(part: ToolPart, view: ToolView, t: (key: string) => string): { label: string; text: string } {
   const args = parseMaybeObject(part.args)
   const result = parseMaybeObject(part.result)
   const detail = view.detail.trim()
@@ -1088,25 +1141,25 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
     if (hasSubstantialOutput) {
-      return { label: 'Copy output', text: detail }
+      return { label: t('tool.copy_output'), text: detail }
     }
 
     const command = firstStringField(args, ['command', 'code']) || contextValue(args)
 
     if (command) {
-      return { label: 'Copy command', text: command }
+      return { label: t('tool.copy_command'), text: command }
     }
   }
 
   if (part.toolName === 'web_extract') {
     if (hasSubstantialOutput) {
-      return { label: 'Copy content', text: detail }
+      return { label: t('tool.copy_content'), text: detail }
     }
 
     const url = firstStringField(args, ['url', 'target']) || findFirstUrl(args, result)
 
     if (url) {
-      return { label: 'Copy URL', text: url }
+      return { label: t('tool.copy_url'), text: url }
     }
   }
 
@@ -1114,7 +1167,7 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
     const url = firstStringField(args, ['url', 'target']) || findFirstUrl(args, result)
 
     if (url) {
-      return { label: 'Copy URL', text: url }
+      return { label: t('tool.copy_url'), text: url }
     }
   }
 
@@ -1122,25 +1175,25 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
     if (view.searchHits?.length) {
       const text = view.searchHits.map(hit => [hit.title, hit.url, hit.snippet].filter(Boolean).join('\n')).join('\n\n')
 
-      return { label: 'Copy results', text }
+      return { label: t('tool.copy_results'), text }
     }
 
     const query = firstStringField(args, ['search_term', 'query']) || contextValue(args)
 
     if (query) {
-      return { label: 'Copy query', text: query }
+      return { label: t('tool.copy_query'), text: query }
     }
   }
 
   if (part.toolName === 'read_file') {
     if (hasSubstantialOutput) {
-      return { label: 'Copy file', text: detail }
+      return { label: t('tool.copy_file'), text: detail }
     }
 
     const path = firstStringField(args, ['path', 'file', 'filepath'])
 
     if (path) {
-      return { label: 'Copy path', text: path }
+      return { label: t('tool.copy_path'), text: path }
     }
   }
 
@@ -1148,69 +1201,94 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
     const path = firstStringField(args, ['path', 'file', 'filepath'])
 
     if (path) {
-      return { label: 'Copy path', text: path }
+      return { label: t('tool.copy_path'), text: path }
     }
   }
 
   if (detail) {
-    return { label: 'Copy output', text: detail }
+    return { label: t('tool.copy_output'), text: detail }
   }
 
-  return { label: 'Copy', text: view.title }
+  return { label: t('tool.copy'), text: view.title }
 }
 
 function dynamicTitle(
   part: ToolPart,
   args: Record<string, unknown>,
   result: Record<string, unknown>,
-  fallback: string
+  fallback: string,
+  t?: TranslateFn
 ): string {
-  const verb = (gerund: string, past: string) => (part.result === undefined ? gerund : past)
+  if (!t) {
+    const verb = (gerund: string, past: string) => (part.result === undefined ? gerund : past)
+
+    if (part.toolName === 'web_extract') {
+      const url = findFirstUrl(args, result)
+      return url ? `${verb('Reading', 'Read')} ${hostnameOf(url)}` : fallback
+    }
+
+    if (part.toolName === 'browser_navigate') {
+      const url = findFirstUrl(args, result)
+      return url ? `${verb('Opening', 'Opened')} ${hostnameOf(url)}` : fallback
+    }
+
+    if (part.toolName === 'web_search') {
+      const query = firstStringField(args, ['search_term', 'query']) || contextValue(args)
+      return query ? `${verb('Searching', 'Searched')} "${compactPreview(query, 48)}"` : fallback
+    }
+
+    if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
+      const command = firstStringField(args, ['command', 'code']) || contextValue(args)
+      if (command) {
+        const verbText = part.toolName === 'execute_code' ? verb('Running code', 'Ran code') : verb('Running', 'Ran')
+        return `${verbText} · ${compactPreview(command, 160)}`
+      }
+    }
+
+    return fallback
+  }
+
+  const state = part.result === undefined ? 'pending' : 'done'
 
   if (part.toolName === 'web_extract') {
     const url = findFirstUrl(args, result)
-
-    return url ? `${verb('Reading', 'Read')} ${hostnameOf(url)}` : fallback
+    return url ? t(`tool.title.web_extract.${state}`, { host: hostnameOf(url) }) : fallback
   }
 
   if (part.toolName === 'browser_navigate') {
     const url = findFirstUrl(args, result)
-
-    return url ? `${verb('Opening', 'Opened')} ${hostnameOf(url)}` : fallback
+    return url ? t(`tool.title.browser_navigate.${state}`, { host: hostnameOf(url) }) : fallback
   }
 
   if (part.toolName === 'web_search') {
     const query = firstStringField(args, ['search_term', 'query']) || contextValue(args)
-
-    return query ? `${verb('Searching', 'Searched')} “${compactPreview(query, 48)}”` : fallback
+    return query ? t(`tool.title.web_search.${state}`, { query: compactPreview(query, 48) }) : fallback
   }
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
     const command = firstStringField(args, ['command', 'code']) || contextValue(args)
-
     if (command) {
-      const verbText = part.toolName === 'execute_code' ? verb('Running code', 'Ran code') : verb('Running', 'Ran')
-
-      return `${verbText} · ${compactPreview(command, 160)}`
+      const key = part.toolName === 'execute_code' ? `tool.title.execute_code.${state}` : `tool.title.terminal.${state}`
+      return t(key, { command: compactPreview(command, 160) })
     }
   }
 
   return fallback
 }
 
-export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
+export function buildToolView(part: ToolPart, inlineDiff: string, t?: TranslateFn): ToolView {
   const argsRecord = parseMaybeObject(part.args)
   const resultRecord = parseMaybeObject(part.result)
-  const meta = toolMeta(part.toolName)
+  const meta = toolMeta(part.toolName, t)
   const status = toolStatus(part, resultRecord)
   const error = toolErrorText(part, resultRecord)
   const baseTitle = part.result === undefined ? meta.pending : meta.done
-  const title = dynamicTitle(part, argsRecord, resultRecord, baseTitle)
+  const title = dynamicTitle(part, argsRecord, resultRecord, baseTitle, t)
   const titleEnriched = title !== baseTitle
-  const baseSubtitle = error || toolSubtitle(part, argsRecord, resultRecord)
+  const baseSubtitle = error || toolSubtitle(part, argsRecord, resultRecord, t)
   const keepSubtitleWithTitle = part.toolName === 'terminal' || part.toolName === 'execute_code'
   const subtitle = titleEnriched && !error && !keepSubtitleWithTitle ? '' : baseSubtitle
-  const detailBody = stripDividerLines(toolDetailText(part, argsRecord, resultRecord))
+  const detailBody = stripDividerLines(toolDetailText(part, argsRecord, resultRecord, t))
 
   const detail = error
     ? [error, detailBody]
@@ -1239,7 +1317,7 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
   return {
     countLabel: resultCount ? formatCountLabel(resultCount) : undefined,
     detail,
-    detailLabel: error ? 'Error details' : toolDetailLabel(part.toolName),
+    detailLabel: error ? (t ? t('tool.error_details') : 'Error details') : toolDetailLabel(part.toolName, t),
     durationLabel: durationLabel(resultRecord),
     icon: meta.icon,
     imageUrl: toolImageUrl(argsRecord, resultRecord),
@@ -1312,11 +1390,16 @@ export function groupStatus(parts: ToolPart[]): ToolStatus {
   return statuses.at(-1) === 'success' ? 'warning' : 'error'
 }
 
-export function groupTitle(parts: ToolPart[]): string {
+export function groupTitle(parts: ToolPart[], t?: TranslateFn): string {
   const prefix = PREFIX_META.find(p => parts.every(part => part.toolName.startsWith(p.prefix)))
-  const verb = prefix?.verb || 'Tool'
+  const prefixKey = prefix ? prefix.prefix.replace(/_$/, '') : 'tool'
 
-  return `${verb} actions · ${parts.length} steps`
+  if (!t) {
+    const verb = prefix?.verb || 'Tool'
+    return `${verb} actions · ${parts.length} steps`
+  }
+
+  return t(`tool.group.${prefixKey}`, { count: parts.length })
 }
 
 export function groupPreviewTargets(parts: ToolPart[]): string[] {
@@ -1360,10 +1443,10 @@ export function groupTailSubtitle(parts: ToolPart[]): string {
   return tail ? buildToolView(tail, '').subtitle : ''
 }
 
-export function groupCopyText(parts: ToolPart[]): string {
+export function groupCopyText(parts: ToolPart[], t?: TranslateFn): string {
   return parts
     .map(part => {
-      const view = buildToolView(part, '')
+      const view = buildToolView(part, '', t)
       const lines = [view.title]
 
       if (view.subtitle && view.subtitle !== view.title) {

@@ -176,24 +176,28 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'model',
     label: 'Model',
+    description: 'Model selection, context window, and fallback options.',
     icon: Sparkles,
     keys: ['model_context_length', 'fallback_providers']
   },
   {
     id: 'chat',
     label: 'Chat',
+    description: 'Assistant style, timezone, reasoning display, and image handling.',
     icon: MessageCircle,
     keys: ['display.personality', 'timezone', 'display.show_reasoning', 'agent.image_input_mode']
   },
   {
     id: 'appearance',
     label: 'Appearance',
+    description: 'Color mode, themes, and tool-call display style.',
     icon: Palette,
     keys: []
   },
   {
     id: 'workspace',
     label: 'Workspace',
+    description: 'Working directory, shell behavior, and file read limits.',
     icon: Monitor,
     keys: [
       'terminal.cwd',
@@ -206,6 +210,7 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'safety',
     label: 'Safety',
+    description: 'Approval modes, command allowlists, and secret redaction.',
     icon: Lock,
     keys: [
       'approvals.mode',
@@ -222,6 +227,7 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'memory',
     label: 'Memory & Context',
+    description: 'Persistent memory, context compression, and conversation limits.',
     icon: Brain,
     keys: [
       'memory.memory_enabled',
@@ -239,6 +245,7 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'voice',
     label: 'Voice',
+    description: 'Text-to-speech, speech-to-text, and voice shortcuts.',
     icon: Mic,
     keys: [
       'tts.provider',
@@ -263,6 +270,7 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'advanced',
     label: 'Advanced',
+    description: 'Toolsets, execution backend, subagent limits, and low-level tuning.',
     icon: Wrench,
     keys: [
       'toolsets',

@@ -1,4 +1,5 @@
 import { useStore } from '@nanostores/react'
+import { useTranslation } from 'react-i18next'
 
 import { triggerHaptic } from '@/lib/haptics'
 import { Check, Palette } from '@/lib/icons'
@@ -52,6 +53,7 @@ function ThemePreview({ name }: { name: string }) {
 }
 
 export function AppearanceSettings() {
+  const { t } = useTranslation()
   const { themeName, mode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
   const activeTheme = availableThemes.find(t => t.name === themeName)
@@ -60,22 +62,19 @@ export function AppearanceSettings() {
     <SettingsContent>
       <div className="space-y-5">
         <div>
-          <SectionHeading icon={Palette} title="Appearance" />
+          <SectionHeading icon={Palette} title={t('appearance.title')} />
           <p className="max-w-2xl text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-            These are desktop-only display preferences. Mode controls brightness; theme controls the accent palette and
-            chat surface styling.
+            {t('appearance.intro')}
           </p>
         </div>
 
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">Color Mode</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Pick a fixed mode or let Hermes follow your system setting.
-              </div>
+              <div className="text-sm font-medium">{t('appearance.color_mode.title')}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.color_mode.desc')}</div>
             </div>
-            <Pill>{prettyName(mode)}</Pill>
+            <Pill>{t(`appearance.mode.${mode}`)}</Pill>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {MODE_OPTIONS.map(({ id, label, description, icon: Icon }) => {
@@ -104,9 +103,9 @@ export function AppearanceSettings() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 text-[length:var(--conversation-text-font-size)] font-medium">{label}</div>
+                  <div className="mt-2 text-[length:var(--conversation-text-font-size)] font-medium">{t(`appearance.mode.${id}`)}</div>
                   <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                    {description}
+                    {t(`appearance.mode_desc.${id}`)}
                   </div>
                 </button>
               )
@@ -117,25 +116,23 @@ export function AppearanceSettings() {
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">Tool Call Display</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Product hides raw tool payloads; Technical shows full input/output.
-              </div>
+              <div className="text-sm font-medium">{t('appearance.tool_view.title')}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.tool_view.desc')}</div>
             </div>
-            <Pill>{toolViewMode === 'technical' ? 'Technical' : 'Product'}</Pill>
+            <Pill>{t(`appearance.tool_view.${toolViewMode}`)}</Pill>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {(
               [
                 {
                   id: 'product',
-                  label: 'Product',
-                  description: 'Human-friendly tool activity with concise summaries.'
+                  label: t('appearance.tool_view.product'),
+                  description: t('appearance.tool_view.product_desc')
                 },
                 {
                   id: 'technical',
-                  label: 'Technical',
-                  description: 'Include raw tool args/results and low-level details.'
+                  label: t('appearance.tool_view.technical'),
+                  description: t('appearance.tool_view.technical_desc')
                 }
               ] as const
             ).map(option => {
@@ -174,10 +171,8 @@ export function AppearanceSettings() {
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">Theme</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Desktop palettes only. The selected mode is applied on top.
-              </div>
+              <div className="text-sm font-medium">{t('appearance.theme.title')}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.theme.desc')}</div>
             </div>
             {activeTheme && <Pill>{activeTheme.label}</Pill>}
           </div>
@@ -202,10 +197,10 @@ export function AppearanceSettings() {
                   <div className="mt-3 flex items-start justify-between gap-3 px-1">
                     <div className="min-w-0">
                       <div className="truncate text-[length:var(--conversation-text-font-size)] font-medium">
-                        {theme.label}
+                        {t(`appearance.theme_names.${theme.name}`, theme.label)}
                       </div>
                       <div className="mt-0.5 line-clamp-2 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                        {theme.description}
+                        {t(`appearance.theme_descs.${theme.name}`, theme.description)}
                       </div>
                     </div>
                     {active && (

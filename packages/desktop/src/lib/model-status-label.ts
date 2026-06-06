@@ -7,14 +7,22 @@ const REASONING_LABELS: Record<string, string> = {
   xhigh: 'Max'
 }
 
-export function reasoningEffortLabel(effort: string): string {
+export function reasoningEffortLabel(effort: string, t?: (key: string) => string): string {
   const key = effort.trim().toLowerCase()
 
   if (!key) {
     return ''
   }
 
-  return REASONING_LABELS[key] ?? effort
+  const mapped = REASONING_LABELS[key]
+  if (!mapped) {
+    return effort
+  }
+  if (!t) {
+    return mapped
+  }
+  const translated = t(`model_menu.effort.${key}`)
+  return translated !== `model_menu.effort.${key}` ? translated : mapped
 }
 
 /** Strip provider prefix and normalize for display. */
@@ -55,7 +63,7 @@ function prettifyBase(base: string): string {
 
 /** Split a model id into a clean display name plus an optional grayed variant
  *  tag, so distinct ids (e.g. `…-4.8` vs `…-4.8-fast`) don't collapse. */
-export function modelDisplayParts(model: string): { name: string; tag: string } {
+export function modelDisplayParts(model: string, t?: (key: string) => string): { name: string; tag: string } {
   let base = modelBaseId(model)
   let tag = ''
 
@@ -68,7 +76,7 @@ export function modelDisplayParts(model: string): { name: string; tag: string } 
     }
   }
 
-  return { name: prettifyBase(base) || model.trim() || 'No model', tag }
+  return { name: prettifyBase(base) || model.trim() || (t ? t('model_menu.no_model') : 'No model'), tag }
 }
 
 /** Friendly one-line model name for menus and the status bar. */
@@ -79,7 +87,8 @@ export function displayModelName(model: string): string {
 /** Status bar trigger label — model name plus the live session state (effort/fast). */
 export function formatModelStatusLabel(
   model: string,
-  options?: { fastMode?: boolean; reasoningEffort?: string }
+  options?: { fastMode?: boolean; reasoningEffort?: string },
+  t?: (key: string) => string
 ): string {
   const name = displayModelName(model)
 
@@ -92,12 +101,12 @@ export function formatModelStatusLabel(
   // Fast is shown when the speed=fast param is on (options.fastMode) OR the
   // active model is a `…-fast` variant (fast via a separate model id).
   if (options?.fastMode || /-fast$/i.test(modelBaseId(model))) {
-    parts.push('Fast')
+    parts.push(t ? t('model_menu.fast') : 'Fast')
   }
 
   // Always surface the effort (empty = Hermes default of medium) so the
   // current reasoning level is visible at a glance, not just when non-default.
-  parts.push(reasoningEffortLabel(options?.reasoningEffort ?? '') || 'Med')
+  parts.push(reasoningEffortLabel(options?.reasoningEffort ?? '', t) || (t ? t('model_menu.med') : 'Med'))
 
   return `${name} · ${parts.join(' ')}`
 }

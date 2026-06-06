@@ -1,44 +1,46 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { COMPLETION_DRAWER_CLASS } from './completion-drawer'
 
 const COMMON_COMMANDS: [string, string][] = [
-  ['/help', 'full list of commands + hotkeys'],
-  ['/clear', 'start a new session'],
-  ['/resume', 'resume a prior session'],
-  ['/details', 'control transcript detail level'],
-  ['/copy', 'copy selection or last assistant message'],
-  ['/quit', 'exit hermes']
+  ['/help', 'help.commands.help'],
+  ['/clear', 'help.commands.clear'],
+  ['/resume', 'help.commands.resume'],
+  ['/details', 'help.commands.details'],
+  ['/copy', 'help.commands.copy'],
+  ['/quit', 'help.commands.quit']
 ]
 
 const HOTKEYS: [string, string][] = [
-  ['@', 'reference files, folders, urls, git'],
-  ['/', 'slash command palette'],
-  ['?', 'this quick help (delete to dismiss)'],
-  ['Enter', 'send · Shift+Enter for newline'],
-  ['Cmd/Ctrl+K', 'send next queued turn'],
-  ['Cmd/Ctrl+L', 'redraw'],
-  ['Esc', 'close popover · cancel run'],
-  ['↑ / ↓', 'cycle popover / history']
+  ['@', 'help.hotkeys.reference'],
+  ['/', 'help.hotkeys.slash'],
+  ['?', 'help.hotkeys.question'],
+  ['Enter', 'help.hotkeys.enter'],
+  ['Cmd/Ctrl+K', 'help.hotkeys.send_queued'],
+  ['Cmd/Ctrl+L', 'help.hotkeys.redraw'],
+  ['Esc', 'help.hotkeys.esc'],
+  ['↑ / ↓', 'help.hotkeys.cycle']
 ]
 
 export function HelpHint() {
+  const { t } = useTranslation()
   return (
     <div className={COMPLETION_DRAWER_CLASS} data-slot="composer-completion-drawer" data-state="open" role="dialog">
-      <Section title="Common commands">
+      <Section title={t('help.common_commands')}>
         {COMMON_COMMANDS.map(([key, desc]) => (
-          <Row description={desc} key={key} keyLabel={key} mono />
+          <Row description={t(desc)} key={key} keyLabel={key} mono />
         ))}
       </Section>
 
-      <Section title="Hotkeys">
+      <Section title={t('help.hotkeys_title')}>
         {HOTKEYS.map(([key, desc]) => (
-          <Row description={desc} key={key} keyLabel={key} />
+          <Row description={t(desc)} key={key} keyLabel={key} />
         ))}
       </Section>
 
       <p className="px-2.5 py-1 text-xs text-muted-foreground/80">
-        <span className="font-mono text-foreground/80">/help</span> opens the full panel · backspace dismisses
+        {t('help.footer')}
       </p>
     </div>
   )

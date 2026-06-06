@@ -80,6 +80,13 @@ function shouldEnablePortableMode(root) {
   if (root) {
     return true
   }
+  // Dev mode sets HERMES_HOME + HERMES_DESKTOP_USER_DATA_DIR for isolation — not USB portable.
+  if (process.env.HERMES_DESKTOP_DEV_SERVER?.trim()) {
+    return (
+      isTruthyEnv(process.env.PINGHERMESAGENT_PORTABLE)
+      || Boolean(process.env.PINGHERMESAGENT_PORTABLE_ROOT?.trim())
+    )
+  }
   return (
     isTruthyEnv(process.env.PINGHERMESAGENT_PORTABLE)
     || Boolean(process.env.PINGHERMESAGENT_PORTABLE_ROOT?.trim())

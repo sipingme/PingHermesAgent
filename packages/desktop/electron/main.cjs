@@ -55,6 +55,7 @@ try {
     if (resourcesPath) {
       nodePty = require(path.join(resourcesPath, 'native-deps', 'node-pty'))
     }
+
   } catch {
     nodePty = null
   }
@@ -93,6 +94,33 @@ const IS_MAC = process.platform === 'darwin'
 const IS_WINDOWS = process.platform === 'win32'
 const IS_WSL = isWslEnvironment()
 const APP_ROOT = app.getAppPath()
+const DEBUG_MODE = process.env.HERMES_DESKTOP_DEBUG === '1' || process.env.HERMES_DESKTOP_DEBUG === 'true'
+
+// Optional debug mode: enable Chromium/Electron logging early.
+if (DEBUG_MODE) {
+  try {
+    app.commandLine.appendSwitch('enable-logging')
+    app.commandLine.appendSwitch('log-level', '0')
+  } catch {}
+
+  try {
+    const origLog = console.log.bind(console)
+    const origWarn = console.warn.bind(console)
+    const origError = console.error.bind(console)
+    console.log = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origLog(...args)
+    }
+    console.warn = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origWarn(...args)
+    }
+    console.error = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origError(...args)
+    }
+  } catch {}
+}
 
 // Remote displays (SSH X11 forwarding, VNC, RDP) make Chromium's GPU
 // compositor flicker — accelerated layers can't be presented cleanly over the
@@ -283,6 +311,48 @@ const APP_ICON_PATHS = [
   path.join(APP_ROOT, 'dist', 'apple-touch-icon.png'),
   path.join(unpackedPathFor(APP_ROOT), 'dist', 'apple-touch-icon.png')
 ]
+
+function startFakeBackendServer(port) {
+  return new Promise(resolve => {
+    const srv = http.createServer((req, res) => {
+      try {
+        const url = new URL(req.url, `http://127.0.0.1:${port}`)
+        if (req.method === 'GET' && url.pathname === '/api/status') {
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
+        if (req.method === 'GET' && url.pathname === '/api/sessions') {
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ sessions: [], total: 0 }))
+          return
+        }
+        if (url.pathname.startsWith('/api/')) {
+          const method = (req.method || 'GET').toUpperCase()
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          // Generic minimal payloads by common endpoints
+          if (method === 'GET' && /\/api\/(models|toolsets|plugins|config|updates\/status)/.test(url.pathname)) {
+            res.end(JSON.stringify({ ok: true, items: [] }))
+          } else if (method === 'GET') {
+            res.end(JSON.stringify({ ok: true }))
+          } else {
+            res.end(JSON.stringify({ ok: true }))
+          }
+          return
+        }
+        res.writeHead(404, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'not_found' }))
+      } catch {
+        try {
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'server_error' }))
+        } catch {}
+      }
+    })
+    srv.listen(port, '127.0.0.1', () => resolve(srv))
+    srv.on('error', () => resolve(null))
+  })
+}
 
 let rendererTitleBarTheme = null
 const terminalSessions = new Map()
@@ -2131,6 +2201,8 @@ function fetchJson(url, token, options = {}) {
         headers: {
           'Content-Type': 'application/json',
           'X-Hermes-Session-Token': token,
+          // Newer backends expect standard Bearer tokens; keep legacy header too
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(body ? { 'Content-Length': String(body.length) } : {})
         }
       },
@@ -3386,6 +3458,31 @@ async function startHermes() {
     const token = crypto.randomBytes(32).toString('base64url')
     // `--tui` is a global CLI option and must appear before the subcommand.
     const dashboardArgs = ['--tui', 'dashboard', '--no-open', '--host', '127.0.0.1', '--port', String(port)]
+    if (BOOT_FAKE_MODE) {
+      const baseUrl = `http://127.0.0.1:${port}`
+      const fake = await startFakeBackendServer(port)
+      if (fake) {
+        await advanceBootProgress('backend.spawn', 'Starting fake Hermes backend (dev)', 84)
+        await advanceBootProgress('backend.wait', 'Waiting for Hermes backend to become ready', 90)
+        await waitForHermes(baseUrl, token)
+        updateBootProgress({
+          phase: 'backend.ready',
+          message: 'Hermes backend is ready. Finalizing desktop startup',
+          progress: 94,
+          running: true,
+          error: null
+        })
+        return {
+          baseUrl,
+          mode: 'fake',
+          source: 'dev',
+          token,
+          wsUrl: `ws://127.0.0.1:${port}/api/ws?token=${encodeURIComponent(token)}`,
+          logs: hermesLog.slice(-80),
+          ...getWindowState()
+        }
+      }
+    }
     await advanceBootProgress('backend.runtime', 'Resolving Hermes runtime', 28)
     const backend = await ensureRuntime(resolveHermesBackend(dashboardArgs))
     const hermesCwd = resolveHermesCwd()

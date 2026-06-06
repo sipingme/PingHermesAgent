@@ -273,7 +273,7 @@ function assembleMac(prebake) {
   mkdirSync(STAGING, { recursive: true });
   const created = [];
   for (const arch of ['arm64', 'x64']) {
-    const zipPath = assembleMacArch(arch, true);
+    const zipPath = assembleMacArch(arch, prebake);
     if (zipPath) {
       created.push(zipPath);
     }

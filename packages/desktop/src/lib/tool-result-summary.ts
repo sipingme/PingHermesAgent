@@ -1,3 +1,5 @@
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string
+
 // Heuristic JSON → human summary for tool results. Default view; technical
 // mode still gets the raw JSON section.
 
@@ -57,6 +59,31 @@ const titleCase = (k: string) =>
     .filter(Boolean)
     .map(p => `${p[0]?.toUpperCase() ?? ''}${p.slice(1)}`)
     .join(' ')
+
+const fieldLabel = (k: string, t?: TranslateFn): string => {
+  if (!t) {
+    return titleCase(k)
+  }
+  const key = `tool.field.${k}`
+  const translated = t(key)
+  return translated !== key ? translated : titleCase(k)
+}
+
+const countLabel = (count: number, noun: 'field' | 'item', t?: TranslateFn): string => {
+  if (!t) {
+    return `${count} ${noun}${count === 1 ? '' : 's'}`
+  }
+  const key = count === 1 ? `tool.plural.${noun}_one` : `tool.plural.${noun}_other`
+  return t(key, { count })
+}
+
+const moreLabel = (count: number, noun: 'field' | 'item', t?: TranslateFn): string => {
+  if (!t) {
+    return `… ${count} more ${count === 1 ? noun : noun + 's'}`
+  }
+  const key = count === 1 ? `tool.more.${noun}_one` : `tool.more.${noun}_other`
+  return t(key, { count })
+}
 
 const pluralize = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 
@@ -118,9 +145,9 @@ function summarizeScalar(v: unknown): string {
   return ''
 }
 
-function summarizeRecordInline(record: Json, depth: number): string {
+function summarizeRecordInline(record: Json, depth: number, t?: TranslateFn): string {
   if (depth > 3) {
-    return pluralize(Object.keys(record).length, 'field')
+    return countLabel(Object.keys(record).length, 'field', t)
   }
 
   const title = firstString(record, ['title', 'name', 'path', 'file', 'filepath', 'url', 'href', 'link', 'id'])
@@ -144,15 +171,15 @@ function summarizeRecordInline(record: Json, depth: number): string {
     .map(k => {
       const s = summarizeScalar(record[k])
 
-      return s ? `${titleCase(k)}: ${s}` : ''
+      return s ? `${fieldLabel(k, t)}: ${s}` : ''
     })
     .filter(Boolean)
     .slice(0, 2)
 
-  return pairs.length ? pairs.join(' · ') : pluralize(Object.keys(record).length, 'field')
+  return pairs.length ? pairs.join(' · ') : countLabel(Object.keys(record).length, 'field', t)
 }
 
-function summarizeListItem(item: unknown, depth: number): string {
+function summarizeListItem(item: unknown, depth: number, t?: TranslateFn): string {
   const v = norm(item)
 
   if (typeof v === 'string') {
@@ -168,17 +195,17 @@ function summarizeListItem(item: unknown, depth: number): string {
   }
 
   if (Array.isArray(v)) {
-    return pluralize(v.length, 'item')
+    return countLabel(v.length, 'item', t)
   }
 
   if (isRecord(v)) {
-    return summarizeRecordInline(v, depth + 1)
+    return summarizeRecordInline(v, depth + 1, t)
   }
 
   return clipInline(String(v))
 }
 
-function formatFieldValue(value: unknown, depth: number): string {
+function formatFieldValue(value: unknown, depth: number, t?: TranslateFn): string {
   const v = norm(value)
   const scalar = summarizeScalar(v)
 
@@ -203,11 +230,11 @@ function formatFieldValue(value: unknown, depth: number): string {
 
     const first = summarizeListItem(v[0], depth + 1)
 
-    return first ? `${pluralize(v.length, 'item')} (${first})` : pluralize(v.length, 'item')
+    return first ? `${countLabel(v.length, 'item', t)} (${first})` : countLabel(v.length, 'item', t)
   }
 
   if (isRecord(v)) {
-    return summarizeRecordInline(v, depth + 1)
+    return summarizeRecordInline(v, depth + 1, t)
   }
 
   return clipInline(String(v))
@@ -215,7 +242,7 @@ function formatFieldValue(value: unknown, depth: number): string {
 
 // "Returned N items" / "0 items" / "Returned an empty object" are all
 // noise — better to render nothing and let the title carry the signal.
-function formatArraySummary(value: unknown[], depth: number): string {
+function formatArraySummary(value: unknown[], depth: number, t?: TranslateFn): string {
   if (!value.length) {
     return ''
   }
@@ -224,7 +251,7 @@ function formatArraySummary(value: unknown[], depth: number): string {
 
   const lines = value
     .slice(0, max)
-    .map(item => summarizeListItem(item, depth + 1))
+    .map(item => summarizeListItem(item, depth + 1, t))
     .filter(Boolean)
     .map(l => `- ${l}`)
 
@@ -234,13 +261,13 @@ function formatArraySummary(value: unknown[], depth: number): string {
 
   if (value.length > max) {
     const remaining = value.length - max
-    lines.push(`- … ${remaining} more ${remaining === 1 ? 'item' : 'items'}`)
+    lines.push(`- ${moreLabel(remaining, 'item', t)}`)
   }
 
   return lines.join('\n')
 }
 
-function formatRecordSummary(record: Json, depth: number): string {
+function formatRecordSummary(record: Json, depth: number, t?: TranslateFn): string {
   const keys = Object.keys(record)
 
   if (!keys.length) {
@@ -261,13 +288,13 @@ function formatRecordSummary(record: Json, depth: number): string {
   const lines: string[] = []
 
   for (const k of candidates) {
-    const v = formatFieldValue(record[k], depth + 1)
+    const v = formatFieldValue(record[k], depth + 1, t)
 
     if (!v) {
       continue
     }
 
-    lines.push(`- ${titleCase(k)}: ${v}`)
+    lines.push(`- ${fieldLabel(k, t)}: ${v}`)
 
     if (lines.length >= max) {
       break
@@ -280,13 +307,13 @@ function formatRecordSummary(record: Json, depth: number): string {
 
   if (candidates.length > lines.length) {
     const remaining = candidates.length - lines.length
-    lines.push(`- … ${remaining} more ${remaining === 1 ? 'field' : 'fields'}`)
+    lines.push(`- ${moreLabel(remaining, 'field', t)}`)
   }
 
   return lines.join('\n')
 }
 
-function formatSummaryValue(value: unknown, depth: number): string {
+function formatSummaryValue(value: unknown, depth: number, t?: TranslateFn): string {
   if (depth > 4) {
     return ''
   }
@@ -306,11 +333,11 @@ function formatSummaryValue(value: unknown, depth: number): string {
   }
 
   if (Array.isArray(v)) {
-    return formatArraySummary(v, depth + 1)
+    return formatArraySummary(v, depth + 1, t)
   }
 
   if (isRecord(v)) {
-    return formatRecordSummary(v, depth + 1)
+    return formatRecordSummary(v, depth + 1, t)
   }
 
   return clipInline(String(v))
@@ -458,8 +485,8 @@ function findNestedError(value: unknown, depth: number, seen: Set<unknown>): str
   return ''
 }
 
-export function formatToolResultSummary(value: unknown): string {
-  return formatSummaryValue(unwrapPayload(value), 0) || formatSummaryValue(value, 0)
+export function formatToolResultSummary(value: unknown, t?: TranslateFn): string {
+  return formatSummaryValue(unwrapPayload(value), 0, t) || formatSummaryValue(value, 0, t)
 }
 
 export function extractToolErrorMessage(value: unknown): string {
