@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
+import { BrailleSpinner } from '@/components/ui/braille-spinner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import type { HermesGateway } from '@/hermes'
@@ -25,8 +25,13 @@ interface ModelVisibilityDialogProps {
   sessionId?: string | null
 }
 
-export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open, sessionId }: ModelVisibilityDialogProps) {
-  const { t } = useTranslation()
+export function ModelVisibilityDialog({
+  gw,
+  onOpenChange,
+  onOpenProviders,
+  open,
+  sessionId
+}: ModelVisibilityDialogProps) {
   const [search, setSearch] = useState('')
   const stored = useStore($visibleModels)
 
@@ -71,7 +76,7 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-xs gap-0 overflow-hidden p-0">
         <DialogHeader className="px-3 pb-1 pt-3">
-          <DialogTitle className="text-[0.8125rem]">{t('model_visibility.title')}</DialogTitle>
+          <DialogTitle className="text-[0.8125rem]">Models</DialogTitle>
         </DialogHeader>
 
         <div className="px-3 py-1.5">
@@ -79,7 +84,7 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
             autoFocus
             className="h-5 w-full bg-transparent text-xs text-foreground placeholder:text-(--ui-text-tertiary) focus:outline-none"
             onChange={event => setSearch(event.target.value)}
-            placeholder={t('model_visibility.search_placeholder')}
+            placeholder="Search models"
             type="text"
             value={search}
           />
@@ -88,13 +93,11 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
         <div className="max-h-[55vh] overflow-y-auto pb-1">
           {providers.length === 0 ? (
             <div className="px-3 py-5 text-center text-xs text-muted-foreground">
-              {modelOptions.isPending ? t('model_visibility.loading') : t('model_visibility.no_providers')}
+              {modelOptions.isPending ? <BrailleSpinner className="mx-auto text-sm" /> : 'No authenticated providers.'}
             </div>
           ) : (
             providers.map(provider => {
-              const models = collapseModelFamilies(provider.models ?? []).filter(family =>
-                matches(provider, family.id)
-              )
+              const models = collapseModelFamilies(provider.models ?? []).filter(family => matches(provider, family.id))
 
               if (models.length === 0) {
                 return null
@@ -106,7 +109,7 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
                     {provider.name}
                   </div>
                   {models.map(family => {
-                    const { name, tag } = modelDisplayParts(family.id, t)
+                    const { name, tag } = modelDisplayParts(family.id)
                     const key = modelVisibilityKey(provider.slug, family.id)
 
                     return (
@@ -118,11 +121,7 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
                           {name}
                           {tag ? <span className="text-(--ui-text-tertiary)"> {tag}</span> : null}
                         </span>
-                        <Switch
-                          checked={visible.has(key)}
-                          className="cursor-pointer"
-                          onCheckedChange={() => toggle(provider, family.id)}
-                        />
+                        <Switch checked={visible.has(key)} onCheckedChange={() => toggle(provider, family.id)} />
                       </label>
                     )
                   })}
@@ -141,7 +140,7 @@ export function ModelVisibilityDialog({ gw, onOpenChange, onOpenProviders, open,
             }}
             type="button"
           >
-            {t('model_visibility.add_provider')}
+            Add provider…
           </button>
         </div>
       </DialogContent>

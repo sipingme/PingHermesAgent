@@ -1,15 +1,15 @@
 import { useStore } from '@nanostores/react'
-import { useTranslation } from 'react-i18next'
 
+import { type Locale, LOCALE_META, useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { Check, Palette } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { notifyError } from '@/store/notifications'
 import { $toolViewMode, setToolViewMode } from '@/store/tool-view'
 import { useTheme } from '@/themes/context'
 import { BUILTIN_THEMES } from '@/themes/presets'
 
 import { MODE_OPTIONS } from './constants'
-import { prettyName } from './helpers'
 import { Pill, SectionHeading, SettingsContent } from './primitives'
 
 function ThemePreview({ name }: { name: string }) {
@@ -53,32 +53,93 @@ function ThemePreview({ name }: { name: string }) {
 }
 
 export function AppearanceSettings() {
-  const { t } = useTranslation()
+  const { t, isSavingLocale, locale, setLocale } = useI18n()
   const { themeName, mode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
-  const activeTheme = availableThemes.find(t => t.name === themeName)
+  const activeTheme = availableThemes.find(theme => theme.name === themeName)
+  const a = t.settings.appearance
+  const locales = Object.keys(LOCALE_META) as Locale[]
+
+  const selectLocale = async (code: Locale) => {
+    if (code === locale || isSavingLocale) {
+      return
+    }
+
+    triggerHaptic('selection')
+
+    try {
+      await setLocale(code)
+      triggerHaptic('success')
+    } catch (error) {
+      notifyError(error, t.language.saveError)
+    }
+  }
 
   return (
     <SettingsContent>
       <div className="space-y-5">
         <div>
-          <SectionHeading icon={Palette} title={t('appearance.title')} />
+          <SectionHeading icon={Palette} title={a.title} />
           <p className="max-w-2xl text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-            {t('appearance.intro')}
+            {a.intro}
           </p>
         </div>
 
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">{t('appearance.color_mode.title')}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.color_mode.desc')}</div>
+              <div className="text-sm font-medium">{t.language.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t.language.description}</div>
+              {isSavingLocale && <div className="mt-1 text-xs text-muted-foreground">{t.language.saving}</div>}
             </div>
-            <Pill>{t(`appearance.mode.${mode}`)}</Pill>
+            <Pill>{LOCALE_META[locale].name}</Pill>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            {MODE_OPTIONS.map(({ id, label, description, icon: Icon }) => {
+            {locales.map(code => {
+              const active = locale === code
+
+              return (
+                <button
+                  className={cn(
+                    'group rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-2.5 text-left transition hover:bg-(--chrome-action-hover)',
+                    active && 'border-(--ui-stroke-secondary) bg-(--ui-bg-tertiary)'
+                  )}
+                  disabled={isSavingLocale}
+                  key={code}
+                  onClick={() => void selectLocale(code)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-[length:var(--conversation-text-font-size)] font-medium">
+                      {LOCALE_META[code].name}
+                    </div>
+                    {active && (
+                      <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3.5" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-[length:var(--conversation-caption-font-size)] uppercase tracking-wide text-(--ui-text-tertiary)">
+                    {code}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium">{a.colorMode}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{a.colorModeDesc}</div>
+            </div>
+            <Pill>{t.settings.modeOptions[mode].label}</Pill>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {MODE_OPTIONS.map(({ id, icon: Icon }) => {
               const active = mode === id
+              const copy = t.settings.modeOptions[id]
 
               return (
                 <button
@@ -103,9 +164,9 @@ export function AppearanceSettings() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 text-[length:var(--conversation-text-font-size)] font-medium">{t(`appearance.mode.${id}`)}</div>
+                  <div className="mt-2 text-[length:var(--conversation-text-font-size)] font-medium">{copy.label}</div>
                   <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                    {t(`appearance.mode_desc.${id}`)}
+                    {copy.description}
                   </div>
                 </button>
               )
@@ -116,24 +177,16 @@ export function AppearanceSettings() {
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">{t('appearance.tool_view.title')}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.tool_view.desc')}</div>
+              <div className="text-sm font-medium">{a.toolViewTitle}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{a.toolViewDesc}</div>
             </div>
-            <Pill>{t(`appearance.tool_view.${toolViewMode}`)}</Pill>
+            <Pill>{toolViewMode === 'technical' ? a.technical : a.product}</Pill>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {(
               [
-                {
-                  id: 'product',
-                  label: t('appearance.tool_view.product'),
-                  description: t('appearance.tool_view.product_desc')
-                },
-                {
-                  id: 'technical',
-                  label: t('appearance.tool_view.technical'),
-                  description: t('appearance.tool_view.technical_desc')
-                }
+                { id: 'product', label: a.product, description: a.productDesc },
+                { id: 'technical', label: a.technical, description: a.technicalDesc }
               ] as const
             ).map(option => {
               const active = toolViewMode === option.id
@@ -171,8 +224,8 @@ export function AppearanceSettings() {
         <section className="rounded-xl border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background) p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-medium">{t('appearance.theme.title')}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{t('appearance.theme.desc')}</div>
+              <div className="text-sm font-medium">{a.themeTitle}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{a.themeDesc}</div>
             </div>
             {activeTheme && <Pill>{activeTheme.label}</Pill>}
           </div>
@@ -197,10 +250,10 @@ export function AppearanceSettings() {
                   <div className="mt-3 flex items-start justify-between gap-3 px-1">
                     <div className="min-w-0">
                       <div className="truncate text-[length:var(--conversation-text-font-size)] font-medium">
-                        {t(`appearance.theme_names.${theme.name}`, theme.label)}
+                        {theme.label}
                       </div>
                       <div className="mt-0.5 line-clamp-2 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                        {t(`appearance.theme_descs.${theme.name}`, theme.description)}
+                        {theme.description}
                       </div>
                     </div>
                     {active && (

@@ -1,18 +1,30 @@
 import { useStore } from '@nanostores/react'
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useMemo } from 'react'
 
 import type { CommandCenterSection } from '@/app/command-center'
 import { GatewayMenuPanel } from '@/app/shell/gateway-menu-panel'
-import { Activity, AlertCircle, ChevronDown, Clock, Command, Hash, Loader2, Sparkles } from '@/lib/icons'
+import {
+  Activity,
+  AlertCircle,
+  ChevronDown,
+  Clock,
+  Command,
+  Hash,
+  Loader2,
+  Sparkles,
+  Zap,
+  ZapFilled
+} from '@/lib/icons'
 import { formatModelStatusLabel } from '@/lib/model-status-label'
 import type { RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@/lib/statusbar'
 import { cn } from '@/lib/utils'
+import { setSessionYolo } from '@/lib/yolo-session'
 import { $desktopActionTasks } from '@/store/activity'
 import { $previewServerRestartStatus } from '@/store/preview'
 import {
+  $activeSessionId,
   $busy,
   $currentFastMode,
   $currentModel,
@@ -22,7 +34,9 @@ import {
   $sessionStartedAt,
   $turnStartedAt,
   $workingSessionIds,
-  setModelPickerOpen
+  $yoloActive,
+  setModelPickerOpen,
+  setYoloActive
 } from '@/store/session'
 import { $subagentsBySession, activeSubagentCount } from '@/store/subagents'
 import { $desktopVersion, $updateApply, $updateStatus, setUpdateOverlayOpen } from '@/store/updates'
@@ -42,6 +56,8 @@ interface StatusbarItemsOptions {
   modelMenuContent?: ReactNode
   openAgents: () => void
   openCommandCenterSection: (section: CommandCenterSection) => void
+  freshDraftReady: boolean
+  requestGateway: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>
   statusSnapshot: StatusResponse | null
   toggleCommandCenter: () => void
 }
@@ -57,10 +73,13 @@ export function useStatusbarItems({
   modelMenuContent,
   openAgents,
   openCommandCenterSection,
+  freshDraftReady,
+  requestGateway,
   statusSnapshot,
   toggleCommandCenter
 }: StatusbarItemsOptions) {
-  const { t } = useTranslation()
+  const activeSessionId = useStore($activeSessionId)
+  const yoloActive = useStore($yoloActive)
   const busy = useStore($busy)
   const currentFastMode = useStore($currentFastMode)
   const currentModel = useStore($currentModel)
@@ -79,6 +98,28 @@ export function useStatusbarItems({
 
   const contextUsage = useMemo(() => usageContextLabel(currentUsage), [currentUsage])
   const contextBar = useMemo(() => contextBarLabel(currentUsage), [currentUsage])
+
+  // Per-session approval bypass (same scope as the TUI's Shift+Tab). On a
+  // new-chat draft (no runtime session yet) we arm locally; the session-create
+  // path applies it once the backend session exists.
+  const toggleYolo = useCallback(async () => {
+    const next = !$yoloActive.get()
+    const sid = $activeSessionId.get()
+
+    setYoloActive(next)
+
+    if (!sid) {
+      return
+    }
+
+    try {
+      await setSessionYolo(requestGateway, sid, next)
+    } catch {
+      setYoloActive(!next)
+    }
+  }, [requestGateway])
+
+  const showYoloToggle = gatewayState === 'open' && (!!activeSessionId || freshDraftReady)
 
   const gatewayMenuContent = useMemo(
     () => (
@@ -119,13 +160,13 @@ export function useStatusbarItems({
 
   const gatewayDetail = gatewayOpen
     ? inferenceStatus?.ready
-      ? t('gateway.detail.ready')
+      ? 'ready'
       : inferenceStatus
-        ? t('gateway.detail.needs_setup')
-        : t('gateway.detail.checking')
+        ? 'needs setup'
+        : 'checking'
     : gatewayConnecting
-      ? t('gateway.detail.connecting')
-      : t('gateway.detail.offline')
+      ? 'connecting'
+      : 'offline'
 
   const gatewayClassName = inferenceReady
     ? undefined
@@ -143,16 +184,16 @@ export function useStatusbarItems({
 
     const label = applying
       ? updateApply.stage === 'restart'
-        ? `${base} · ${t('statusbar.restart')}`
-        : `${base} · ${t('statusbar.update')}`
+        ? `${base} · restart`
+        : `${base} · update`
       : `${base}${behindHint}`
 
     const tooltip = [
-      applying ? updateApply.message || t('statusbar.update_in_progress') : null,
-      !applying && behind > 0 && t('statusbar.commits_behind', { count: behind, branch: updateStatus?.branch ?? '…' }),
-      appVersion && t('statusbar.version', { version: appVersion }),
-      sha && t('statusbar.commit', { sha }),
-      updateStatus?.branch && t('statusbar.branch', { branch: updateStatus.branch })
+      applying ? updateApply.message || 'Update in progress' : null,
+      !applying && behind > 0 && `${behind} commit${behind === 1 ? '' : 's'} behind ${updateStatus?.branch ?? '…'}`,
+      appVersion && `Hermes Desktop v${appVersion}`,
+      sha && `commit ${sha}`,
+      updateStatus?.branch && `branch ${updateStatus.branch}`
     ]
       .filter(Boolean)
       .join(' · ')
@@ -185,7 +226,7 @@ export function useStatusbarItems({
         icon: <Command className="size-3.5" />,
         id: 'command-center',
         onSelect: toggleCommandCenter,
-        title: commandCenterOpen ? t('statusbar.close_command_center') : t('statusbar.open_command_center'),
+        title: commandCenterOpen ? 'Close Command Center' : 'Open Command Center',
         variant: 'action'
       },
       {
@@ -193,10 +234,10 @@ export function useStatusbarItems({
         detail: gatewayDetail,
         icon: inferenceReady ? <Activity className="size-3" /> : <AlertCircle className="size-3" />,
         id: 'gateway-health',
-        label: t('gateway.title'),
+        label: 'Gateway',
         menuClassName: 'w-72',
         menuContent: gatewayMenuContent,
-        title: inferenceStatus?.reason || t('statusbar.gateway_status'),
+        title: inferenceStatus?.reason || 'Hermes inference gateway status',
         variant: 'menu'
       },
       {
@@ -206,11 +247,11 @@ export function useStatusbarItems({
         ),
         detail:
           subagentsRunning > 0
-            ? t('statusbar.subagents_count', { count: subagentsRunning })
+            ? `${subagentsRunning} subagent${subagentsRunning === 1 ? '' : 's'}`
             : bgFailed > 0
-              ? t('statusbar.failed_count', { count: bgFailed })
+              ? `${bgFailed} failed`
               : bgRunning > 0
-                ? t('statusbar.running_count', { count: bgRunning })
+                ? `${bgRunning} running`
                 : undefined,
         icon:
           bgFailed > 0 ? (
@@ -221,16 +262,16 @@ export function useStatusbarItems({
             <Sparkles className="size-3" />
           ),
         id: 'agents',
-        label: t('statusbar.agents'),
+        label: 'Agents',
         onSelect: openAgents,
-        title: agentsOpen ? t('statusbar.close_agents') : t('statusbar.open_agents'),
+        title: agentsOpen ? 'Close agents' : 'Open agents',
         variant: 'action'
       },
       {
         icon: <Clock className="size-3" />,
         id: 'cron',
-        label: t('statusbar.cron'),
-        title: t('statusbar.open_cron'),
+        label: 'Cron',
+        title: 'Open cron jobs',
         to: CRON_ROUTE,
         variant: 'action'
       }
@@ -258,8 +299,8 @@ export function useStatusbarItems({
         hidden: !busy || !turnStartedAt,
         icon: <Loader2 className="size-3 animate-spin" />,
         id: 'running-timer',
-        label: t('statusbar.running'),
-        title: t('statusbar.current_turn_elapsed'),
+        label: 'Running',
+        title: 'Current turn elapsed',
         variant: 'text'
       },
       {
@@ -267,16 +308,31 @@ export function useStatusbarItems({
         hidden: !contextUsage,
         id: 'context-usage',
         label: contextUsage,
-        title: t('statusbar.context_usage'),
+        title: 'Context usage',
         variant: 'text'
       },
       {
         detail: <LiveDuration since={sessionStartedAt} />,
         hidden: !sessionStartedAt,
         id: 'session-timer',
-        label: t('statusbar.session'),
-        title: t('statusbar.runtime_session_elapsed'),
+        label: 'Session',
+        title: 'Runtime session elapsed',
         variant: 'text'
+      },
+      {
+        className: cn('px-1', yoloActive && 'bg-(--chrome-action-hover)'),
+        hidden: !showYoloToggle,
+        icon: yoloActive ? (
+          <ZapFilled className="size-3.5 shrink-0" />
+        ) : (
+          <Zap className="size-3.5 shrink-0 opacity-70" />
+        ),
+        id: 'yolo',
+        onSelect: () => void toggleYolo(),
+        title: yoloActive
+          ? 'YOLO on — auto-approving dangerous commands. Click to turn off.'
+          : 'YOLO off — click to auto-approve dangerous commands.',
+        variant: 'action'
       },
       {
         id: 'model-summary',
@@ -286,7 +342,7 @@ export function useStatusbarItems({
               {formatModelStatusLabel(currentModel, {
                 fastMode: currentFastMode,
                 reasoningEffort: currentReasoningEffort
-              }, t)}
+              })}
             </span>
             <ChevronDown className="size-2.5 shrink-0 opacity-50" />
           </span>
@@ -296,16 +352,12 @@ export function useStatusbarItems({
               menuAlign: 'end' as const,
               menuClassName: 'w-64',
               menuContent: modelMenuContent,
-              title: currentProvider
-                ? `Model · ${currentProvider}: ${currentModel || 'none'}`
-                : 'Switch model',
+              title: currentProvider ? `Model · ${currentProvider}: ${currentModel || 'none'}` : 'Switch model',
               variant: 'menu' as const
             }
           : {
               onSelect: () => setModelPickerOpen(true),
-              title: currentProvider
-                ? `${currentProvider} · ${currentModel || 'no model'}`
-                : 'Open model picker',
+              title: currentProvider ? `${currentProvider} · ${currentModel || 'no model'}` : 'Open model picker',
               variant: 'action' as const
             })
       },
@@ -321,8 +373,11 @@ export function useStatusbarItems({
       currentReasoningEffort,
       modelMenuContent,
       sessionStartedAt,
+      showYoloToggle,
+      toggleYolo,
       turnStartedAt,
-      versionItem
+      versionItem,
+      yoloActive
     ]
   )
 

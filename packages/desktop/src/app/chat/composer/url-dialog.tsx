@@ -1,5 +1,4 @@
 import type * as React from 'react'
-import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +10,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useI18n } from '@/i18n'
 import { Globe } from '@/lib/icons'
 
 const URL_HINT = /^https?:\/\//i
@@ -30,7 +30,8 @@ export function UrlDialog({
   open: boolean
   value: string
 }) {
-  const { t } = useTranslation()
+  const { t } = useI18n()
+  const c = t.composer
   const trimmed = value.trim()
   const looksLikeUrl = trimmed.length > 0 && URL_HINT.test(trimmed)
 
@@ -45,8 +46,8 @@ export function UrlDialog({
             <Globe className="size-4" />
           </span>
           <div className="grid gap-0.5 text-left">
-            <DialogTitle>{t('composer.url_dialog.title')}</DialogTitle>
-            <DialogDescription>{t('composer.url_dialog.desc')}</DialogDescription>
+            <DialogTitle>{c.attachUrlTitle}</DialogTitle>
+            <DialogDescription>{c.attachUrlDesc}</DialogDescription>
           </div>
         </DialogHeader>
         <form
@@ -62,23 +63,24 @@ export function UrlDialog({
               autoCorrect="off"
               inputMode="url"
               onChange={e => onChange(e.target.value)}
-              placeholder={t('composer.url_dialog.placeholder')}
+              placeholder={c.urlPlaceholder}
               ref={inputRef}
               spellCheck={false}
               value={value}
             />
             {trimmed.length > 0 && !looksLikeUrl && (
               <p className="text-xs text-muted-foreground/85">
-                {t('composer.url_dialog.hint')}
+                {c.urlHintPre}
+                <span className="font-mono">https://…</span>
               </p>
             )}
           </div>
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
-              {t('common.cancel')}
+              {t.common.cancel}
             </Button>
             <Button disabled={!looksLikeUrl} type="submit">
-              {t('composer.url_dialog.attach')}
+              {c.attach}
             </Button>
           </DialogFooter>
         </form>

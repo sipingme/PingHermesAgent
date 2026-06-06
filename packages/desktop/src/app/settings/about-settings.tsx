@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { type Translations, useI18n } from '@/i18n'
 import { CheckCircle2, ExternalLink, Loader2, RefreshCw, Sparkles } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import {
@@ -19,17 +19,31 @@ import { ListRow, SectionHeading, SettingsContent } from './primitives'
 
 const RELEASE_NOTES_URL = 'https://github.com/NousResearch/hermes-agent/releases'
 
-function relativeTime(ms: number | undefined, t: (k: string, o?: any) => string) {
-  if (!ms) return t('about.relative.never')
+function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {
+  if (!ms) {
+    return a.never
+  }
+
   const diff = Date.now() - ms
-  if (diff < 60_000) return t('about.relative.just_now')
-  if (diff < 3_600_000) return t('about.relative.minutes_ago', { count: Math.round(diff / 60_000) })
-  if (diff < 86_400_000) return t('about.relative.hours_ago', { count: Math.round(diff / 3_600_000) })
-  return t('about.relative.days_ago', { count: Math.round(diff / 86_400_000) })
+
+  if (diff < 60_000) {
+    return a.justNow
+  }
+
+  if (diff < 3_600_000) {
+    return a.minAgo(Math.round(diff / 60_000))
+  }
+
+  if (diff < 86_400_000) {
+    return a.hoursAgo(Math.round(diff / 3_600_000))
+  }
+
+  return a.daysAgo(Math.round(diff / 86_400_000))
 }
 
 export function AboutSettings() {
-  const { t } = useTranslation()
+  const { t } = useI18n()
+  const a = t.settings.about
   const version = useStore($desktopVersion)
   const status = useStore($updateStatus)
   const apply = useStore($updateApply)
@@ -58,21 +72,21 @@ export function AboutSettings() {
   let statusTone: 'idle' | 'available' | 'error' = 'idle'
 
   if (!supported) {
-    statusLine = status?.message ?? t('about.status_unsupported')
+    statusLine = status?.message ?? a.cantUpdate
     statusTone = 'error'
   } else if (status?.error) {
-    statusLine = t('about.status_unreachable')
+    statusLine = a.cantReach
     statusTone = 'error'
   } else if (applying) {
-    statusLine = t('about.status_installing')
+    statusLine = a.installing
     statusTone = 'available'
   } else if (behind > 0) {
-    statusLine = t('about.update_available', { count: behind })
+    statusLine = a.updateReady(behind)
     statusTone = 'available'
   } else if (status) {
-    statusLine = t('about.status_latest')
+    statusLine = a.onLatest
   } else {
-    statusLine = t('about.status_prompt')
+    statusLine = a.tapCheck
   }
 
   return (
@@ -82,15 +96,15 @@ export function AboutSettings() {
           <Sparkles className="size-8" />
         </span>
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">{t('about.title')}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{a.heading}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {version?.appVersion ? t('about.version', { version: version.appVersion }) : t('about.version_unavailable')}
+            {version?.appVersion ? a.version(version.appVersion) : a.versionUnavailable}
           </p>
         </div>
       </div>
 
       <div className="mx-auto mt-4 w-full max-w-2xl">
-        <SectionHeading icon={RefreshCw} title={t('about.updates')} />
+        <SectionHeading icon={RefreshCw} title={a.updates} />
 
         <div
           className={cn(
@@ -109,35 +123,30 @@ export function AboutSettings() {
             <div className="min-w-0">
               <p className="font-medium">{statusLine}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {t('about.last_checked', { time: relativeTime(status?.fetchedAt, t) })}
-                {justChecked && !checking ? ` · ${t('about.relative.just_now')}` : ''}
+                {a.lastChecked(relativeTime(status?.fetchedAt, a))}
+                {justChecked && !checking ? a.justNowSuffix : ''}
               </p>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-4">
             <Button
               disabled={checking || applying || !supported}
               onClick={() => void handleCheck()}
               size="sm"
-              variant="outline"
+              variant="textStrong"
             >
               {checking ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
-              {checking ? t('about.checking') : t('about.check_now')}
+              {checking ? a.checking : a.checkNow}
             </Button>
 
             {behind > 0 && supported && !applying && (
               <Button onClick={() => openUpdatesWindow()} size="sm">
-                {t('about.see_whats_new')}
+                {a.seeWhatsNew}
               </Button>
             )}
 
-            <Button
-              asChild
-              className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-              size="sm"
-              variant="ghost"
-            >
+            <Button asChild className="ml-auto" size="sm" variant="text">
               <a
                 href={RELEASE_NOTES_URL}
                 onClick={event => {
@@ -148,18 +157,16 @@ export function AboutSettings() {
                 target="_blank"
               >
                 <ExternalLink className="size-3" />
-                {t('about.release_notes')}
+                {a.releaseNotes}
               </a>
             </Button>
           </div>
         </div>
 
         <ListRow
-          description={t('about.automatic_updates_desc')}
-          hint={`${t('about.branch')} ${status?.branch ?? 'unknown'} · ${t('about.commit')} ${
-            status?.currentSha?.slice(0, 7) ?? 'unknown'
-          }`}
-          title={t('about.automatic_updates_title')}
+          description={a.automaticUpdatesDesc}
+          hint={a.branchCommit(status?.branch ?? 'unknown', status?.currentSha?.slice(0, 7) ?? 'unknown')}
+          title={a.automaticUpdates}
         />
       </div>
     </SettingsContent>

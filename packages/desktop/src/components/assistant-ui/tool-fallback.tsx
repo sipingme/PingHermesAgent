@@ -3,7 +3,6 @@
 import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { createContext, type FC, type PropsWithChildren, type ReactNode, useContext, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/shallow'
 
 import { AnsiText } from '@/components/assistant-ui/ansi-text'
@@ -22,9 +21,11 @@ import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } f
 import { AlertCircle, CheckCircle2 } from '@/lib/icons'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
+import { $approvalRequest } from '@/store/prompts'
 import { $toolInlineDiffs } from '@/store/tool-diffs'
 import { $toolDisclosureOpen, $toolViewMode, setToolDisclosureOpen } from '@/store/tool-view'
 
+import { APPROVAL_TOOLS, PendingToolApproval } from './tool-approval'
 import {
   groupCopyText as buildGroupCopyText,
   buildToolView,
@@ -187,7 +188,6 @@ function useDisclosureOpen(disclosureId: string, fallbackOpen = false): boolean 
 }
 
 function ToolEntry({ part }: ToolEntryProps) {
-  const { t } = useTranslation()
   const messageId = useAuiState(s => s.message.id)
   const messageRunning = useAuiState(selectMessageRunning)
   const embedded = useContext(ToolEmbedContext)
@@ -210,8 +210,8 @@ function ToolEntry({ part }: ToolEntryProps) {
   const view = useMemo(() => {
     const p = !isPending && part.result === undefined ? { ...part, result: {} } : part
 
-    return buildToolView(p, inlineDiff, t)
-  }, [inlineDiff, isPending, part, t])
+    return buildToolView(p, inlineDiff)
+  }, [inlineDiff, isPending, part])
 
   const detailSections = useMemo(() => {
     if (!view.detail) {
@@ -252,7 +252,7 @@ function ToolEntry({ part }: ToolEntryProps) {
     (part.toolName === 'terminal' || part.toolName === 'execute_code' || part.toolName === 'read_file')
 
   const hasSearchHits = Boolean(view.searchHits?.length)
-  const searchResultsLabel = part.toolName === 'web_search' ? t('tool.search_results') : view.detailLabel
+  const searchResultsLabel = part.toolName === 'web_search' ? 'Search results' : view.detailLabel
 
   const showRawSearchDrilldown =
     part.toolName === 'web_search' &&
@@ -268,7 +268,7 @@ function ToolEntry({ part }: ToolEntryProps) {
     toolViewMode === 'technical'
   )
 
-  const copyAction = useMemo(() => toolCopyPayload(part, view, t), [part, view, t])
+  const copyAction = useMemo(() => toolCopyPayload(part, view), [part, view])
 
   const trailing =
     isPending && !embedded ? (
@@ -311,6 +311,7 @@ function ToolEntry({ part }: ToolEntryProps) {
           </span>
         </DisclosureRow>
       </div>
+      {isPending && <PendingToolApproval part={part} />}
       {open && (
         <div className="grid w-full min-w-0 max-w-full gap-1.5 overflow-hidden p-1.5">
           {!embedded && view.previewTarget && isPreviewableTarget(view.previewTarget) && (
@@ -389,7 +390,7 @@ function ToolEntry({ part }: ToolEntryProps) {
             ))}
           {showRawSearchDrilldown && (
             <details className="max-w-full">
-              <summary className={cn(TOOL_SECTION_LABEL_CLASS, 'cursor-pointer mb-0')}>Raw response</summary>
+              <summary className={cn(TOOL_SECTION_LABEL_CLASS, 'mb-0')}>Raw response</summary>
               <pre className={cn(TOOL_SECTION_PRE_CLASS, 'mt-1 whitespace-pre-wrap wrap-anywhere')}>
                 {view.rawResult}
               </pre>
@@ -431,7 +432,6 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
   endIndex,
   startIndex
 }) => {
-  const { t } = useTranslation()
   const messageId = useAuiState(s => s.message.id)
   const messageRunning = useAuiState(selectMessageRunning)
 
@@ -459,7 +459,24 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
   // tools append to the end), so user-driven open/close persists across
   // streaming.
   const disclosureId = `tool-group:${messageId}:${startIndex}`
-  const open = useDisclosureOpen(disclosureId)
+  const userOpen = useDisclosureOpen(disclosureId)
+
+  // A live approval request must NEVER be buried inside a collapsed group —
+  // the user has to be able to act on it without first expanding "Tool
+  // actions · N steps". When an approval is in flight and this group hosts
+  // the pending approval-eligible tool that raised it (terminal /
+  // execute_code with no result yet — see tool-approval.tsx for why the
+  // single pending row IS the one that raised it), force the body open so
+  // the inline ApprovalBar surfaces. The user can still collapse the group
+  // again once the approval resolves.
+  const approvalRequest = useStore($approvalRequest)
+
+  const hostsLiveApproval =
+    approvalRequest !== null &&
+    messageRunning &&
+    visibleParts.some(p => p.result === undefined && APPROVAL_TOOLS.has(p.toolName))
+
+  const open = userOpen || hostsLiveApproval
   const enterRef = useEnterAnimation(messageRunning, disclosureId)
 
   const status = groupStatus(visibleParts)
@@ -471,10 +488,14 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
     displayStatus === 'running' || failedStepCount === 0
       ? ''
       : displayStatus === 'warning'
-        ? t('tool.status.recovered', { count: failedStepCount })
-        : t('tool.status.failed', { count: failedStepCount })
+        ? failedStepCount === 1
+          ? 'Recovered after 1 failed step'
+          : `Recovered after ${failedStepCount} failed steps`
+        : failedStepCount === 1
+          ? '1 step failed'
+          : `${failedStepCount} steps failed`
 
-  const groupCopyText = useMemo(() => buildGroupCopyText(visibleParts, t), [visibleParts, t])
+  const groupCopyText = useMemo(() => buildGroupCopyText(visibleParts), [visibleParts])
   const previewTargets = useMemo(() => groupPreviewTargets(visibleParts), [visibleParts])
 
   return (
@@ -487,7 +508,7 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
             open={open}
             trailing={
               !isRunning && groupCopyText ? (
-                <CopyButton appearance="tool-row" label={t('tool.copy_activity')} stopPropagation text={groupCopyText} />
+                <CopyButton appearance="tool-row" label="Copy activity" stopPropagation text={groupCopyText} />
               ) : undefined
             }
           >
@@ -500,7 +521,7 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
                   displayStatus === 'warning' && 'text-amber-700 dark:text-amber-300'
                 )}
               >
-                {groupTitle(visibleParts, t)}
+                {groupTitle(visibleParts)}
               </FadeText>
               {totalDurationLabel && <span className={TOOL_HEADER_DURATION_CLASS}>{totalDurationLabel}</span>}
             </span>

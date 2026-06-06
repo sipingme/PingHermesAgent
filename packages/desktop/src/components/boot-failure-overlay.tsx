@@ -1,13 +1,25 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, FileText, Loader2, RefreshCw, Wrench } from '@/lib/icons'
+import type { DesktopConnectionConfig } from '@/global'
+import { useI18n } from '@/i18n'
+import { AlertTriangle, FileText, Loader2, LogIn, RefreshCw, Wrench } from '@/lib/icons'
 import { $desktopBoot } from '@/store/boot'
+import { notify, notifyError } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
 
-type BusyAction = 'local' | 'repair' | 'retry' | null
+import type { RemoteReauth } from './boot-failure-reauth'
+import { deriveProviderShape, isRemoteReauthFailure, signInLabel } from './boot-failure-reauth'
+
+type BusyAction = 'local' | 'repair' | 'retry' | 'signin' | null
+
+// A remote gateway whose access cookie has lapsed (e.g. the dashboard
+// restarted on the remote box) boots into this overlay with a reauth-shaped
+// error. The local-recovery buttons (Retry resets the local bootstrap latch;
+// Repair re-runs the installer) are no-ops for that case — the only fix is to
+// re-establish the remote session. The detection + copy helpers live in
+// ./boot-failure-reauth so they're unit-testable without a React render.
 
 // Recovery surface for a hard boot failure (gateway never came up, backend
 // exited during startup, bootstrap latched, …). Without this the app shell
@@ -16,10 +28,11 @@ type BusyAction = 'local' | 'repair' | 'retry' | null
 export function BootFailureOverlay() {
   const boot = useStore($desktopBoot)
   const onboarding = useStore($desktopOnboarding)
+  const { t } = useI18n()
   const [busy, setBusy] = useState<BusyAction>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [showLogs, setShowLogs] = useState(false)
-  const { t, i18n } = useTranslation()
+  const [remoteReauth, setRemoteReauth] = useState<RemoteReauth | null>(null)
 
   const visible = Boolean(boot.error) && !boot.running
   // While first-run onboarding owns the picker/flow we let it surface its own
@@ -36,6 +49,59 @@ export function BootFailureOverlay() {
       ?.getRecentLogs()
       .then(res => setLogs(res.lines ?? []))
       .catch(() => undefined)
+  }, [visible])
+
+  // Resolve whether this boot failure is a remote-gateway reauth so we can
+  // offer the actionable "Sign in" path instead of the local-only recovery
+  // buttons. Runs whenever the overlay becomes visible.
+  useEffect(() => {
+    if (!visible) {
+      setRemoteReauth(null)
+
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const desktop = window.hermesDesktop
+
+      if (!desktop?.getConnectionConfig) {
+        return
+      }
+
+      let config: DesktopConnectionConfig
+
+      try {
+        config = await desktop.getConnectionConfig()
+      } catch {
+        return
+      }
+
+      if (cancelled || !isRemoteReauthFailure(config)) {
+        return
+      }
+
+      // Best-effort probe for the provider shape so the button copy matches
+      // what the user will see in the login window (password form vs OAuth
+      // redirect). Probe failure just keeps the generic copy.
+      let shape = deriveProviderShape(null)
+
+      try {
+        const probe = await desktop.probeConnectionConfig(config.remoteUrl)
+        shape = deriveProviderShape(probe?.providers)
+      } catch {
+        // Generic copy is fine.
+      }
+
+      if (!cancelled) {
+        setRemoteReauth({ url: config.remoteUrl, ...shape })
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [visible])
 
   if (!visible || suppressed) {
@@ -56,13 +122,53 @@ export function BootFailureOverlay() {
 
   const switchToLocalGateway = async () => {
     setBusy('local')
-    // Already on local mode — applyConnectionConfig only kills/restarts the
-    // backend and reloads. Retry is the right recovery path.
-    await window.hermesDesktop?.resetBootstrap().catch(() => undefined)
-    window.location.reload()
+    // applyConnectionConfig reloads the window from the main process.
+    await window.hermesDesktop?.applyConnectionConfig({ mode: 'local' }).catch(() => undefined)
+    setBusy(null)
+  }
+
+  // Open the gateway's login window (renders the username/password form for a
+  // basic gateway, or the OAuth redirect otherwise — the desktop drives both
+  // through the same window). On a successful sign-in the session cookie is
+  // re-established in the persistent partition; reload so boot re-runs and the
+  // reconnect now mints a ticket against a live session.
+  const signInRemote = async () => {
+    if (!remoteReauth) {
+      return
+    }
+
+    setBusy('signin')
+
+    try {
+      const result = await window.hermesDesktop?.oauthLoginConnectionConfig(remoteReauth.url)
+
+      if (result?.connected) {
+        notify({ kind: 'success', title: t.boot.failure.signedInTitle, message: t.boot.failure.signedInMessage })
+        window.location.reload()
+
+        return
+      }
+
+      notify({
+        kind: 'warning',
+        title: t.boot.failure.signInIncompleteTitle,
+        message: t.boot.failure.signInIncompleteMessage
+      })
+    } catch (err) {
+      notifyError(err, t.boot.failure.signInFailed)
+    } finally {
+      setBusy(null)
+    }
   }
 
   const openLogs = () => void window.hermesDesktop?.revealLogs().catch(() => undefined)
+  const copy = t.boot.failure
+
+  const label = signInLabel(remoteReauth, {
+    identityProvider: copy.identityProvider,
+    remoteGateway: copy.signInToRemoteGateway,
+    withProvider: copy.signInWithProvider
+  })
 
   return (
     <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-(--ui-chat-surface-background) p-6">
@@ -71,19 +177,13 @@ export function BootFailureOverlay() {
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <AlertTriangle className="size-5" />
           </div>
-          <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-[0.9375rem] font-semibold tracking-tight">{t('bootFailure.title')}</h2>
-              <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">{t('bootFailure.subtitle')}</p>
-            </div>
-            <div className="flex shrink-0 items-start gap-1">
-              <Button onClick={() => void i18n.changeLanguage('zh-CN')} size="sm" variant="ghost">
-                {t('lang.chinese', '中文')}
-              </Button>
-              <Button onClick={() => void i18n.changeLanguage('en')} size="sm" variant="ghost">
-                {t('lang.english', 'English')}
-              </Button>
-            </div>
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold tracking-tight">
+              {remoteReauth ? copy.remoteTitle : copy.title}
+            </h2>
+            <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">
+              {remoteReauth ? copy.remoteDescription : copy.description}
+            </p>
           </div>
         </div>
 
@@ -94,24 +194,35 @@ export function BootFailureOverlay() {
 
           <div className="grid gap-2">
             <div className="flex flex-wrap gap-2">
-              <Button disabled={Boolean(busy)} onClick={() => void retry()}>
-                {busy === 'retry' ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                {t('bootFailure.retry')}
-              </Button>
-              <Button disabled={Boolean(busy)} onClick={() => void repair()} variant="outline">
-                {busy === 'repair' ? <Loader2 className="size-4 animate-spin" /> : <Wrench className="size-4" />}
-                {t('bootFailure.repair')}
-              </Button>
+              {remoteReauth ? (
+                <Button disabled={Boolean(busy)} onClick={() => void signInRemote()}>
+                  {busy === 'signin' ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}
+                  {label}
+                </Button>
+              ) : (
+                <Button disabled={Boolean(busy)} onClick={() => void retry()}>
+                  {busy === 'retry' ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  {copy.retry}
+                </Button>
+              )}
+              {!remoteReauth ? (
+                <Button disabled={Boolean(busy)} onClick={() => void repair()} variant="outline">
+                  {busy === 'repair' ? <Loader2 className="size-4 animate-spin" /> : <Wrench className="size-4" />}
+                  {copy.repairInstall}
+                </Button>
+              ) : null}
               <Button disabled={Boolean(busy)} onClick={() => void switchToLocalGateway()} variant="outline">
                 {busy === 'local' ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t('bootFailure.useLocal')}
+                {copy.useLocalGateway}
               </Button>
               <Button onClick={openLogs} variant="ghost">
                 <FileText className="size-4" />
-                {t('bootFailure.openLogs')}
+                {copy.openLogs}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{t('bootFailure.repairNote')}</p>
+            <p className="text-xs text-muted-foreground">
+              {remoteReauth ? copy.remoteSignInHint : copy.repairHint}
+            </p>
           </div>
 
           {logs.length > 0 ? (
@@ -121,7 +232,7 @@ export function BootFailureOverlay() {
                 onClick={() => setShowLogs(v => !v)}
                 type="button"
               >
-                {showLogs ? t('bootFailure.hideLogs') : t('bootFailure.showLogs')}
+                {showLogs ? copy.hideRecentLogs : copy.showRecentLogs}
               </button>
               {showLogs ? (
                 <pre className="max-h-48 overflow-auto rounded-2xl border border-border bg-secondary/30 p-3 font-mono text-[0.7rem] leading-4 text-muted-foreground">

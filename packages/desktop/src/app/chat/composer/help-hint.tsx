@@ -1,46 +1,32 @@
 import type { ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+
+import { useI18n } from '@/i18n'
 
 import { COMPLETION_DRAWER_CLASS } from './completion-drawer'
 
-const COMMON_COMMANDS: [string, string][] = [
-  ['/help', 'help.commands.help'],
-  ['/clear', 'help.commands.clear'],
-  ['/resume', 'help.commands.resume'],
-  ['/details', 'help.commands.details'],
-  ['/copy', 'help.commands.copy'],
-  ['/quit', 'help.commands.quit']
-]
-
-const HOTKEYS: [string, string][] = [
-  ['@', 'help.hotkeys.reference'],
-  ['/', 'help.hotkeys.slash'],
-  ['?', 'help.hotkeys.question'],
-  ['Enter', 'help.hotkeys.enter'],
-  ['Cmd/Ctrl+K', 'help.hotkeys.send_queued'],
-  ['Cmd/Ctrl+L', 'help.hotkeys.redraw'],
-  ['Esc', 'help.hotkeys.esc'],
-  ['↑ / ↓', 'help.hotkeys.cycle']
-]
+const COMMON_COMMAND_KEYS = ['/help', '/clear', '/resume', '/details', '/copy', '/quit']
+const HOTKEY_KEYS = ['@', '/', '?', 'Enter', 'Cmd/Ctrl+K', 'Cmd/Ctrl+L', 'Esc', '↑ / ↓']
 
 export function HelpHint() {
-  const { t } = useTranslation()
+  const { t } = useI18n()
+  const c = t.composer
+
   return (
     <div className={COMPLETION_DRAWER_CLASS} data-slot="composer-completion-drawer" data-state="open" role="dialog">
-      <Section title={t('help.common_commands')}>
-        {COMMON_COMMANDS.map(([key, desc]) => (
-          <Row description={t(desc)} key={key} keyLabel={key} mono />
+      <Section title={c.commonCommands}>
+        {COMMON_COMMAND_KEYS.map(key => (
+          <Row description={c.commandDescs[key] ?? ''} key={key} keyLabel={key} mono />
         ))}
       </Section>
 
-      <Section title={t('help.hotkeys_title')}>
-        {HOTKEYS.map(([key, desc]) => (
-          <Row description={t(desc)} key={key} keyLabel={key} />
+      <Section title={c.hotkeys}>
+        {HOTKEY_KEYS.map(key => (
+          <Row description={c.hotkeyDescs[key] ?? ''} key={key} keyLabel={key} />
         ))}
       </Section>
 
       <p className="px-2.5 py-1 text-xs text-muted-foreground/80">
-        {t('help.footer')}
+        <span className="font-mono text-foreground/80">/help</span> {c.helpFooter}
       </p>
     </div>
   )

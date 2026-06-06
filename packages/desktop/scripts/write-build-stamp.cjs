@@ -33,12 +33,7 @@ const { execSync } = require("child_process")
 const STAMP_SCHEMA_VERSION = 1
 
 const DESKTOP_ROOT = path.resolve(__dirname, "..")
-const MONOREPO_ROOT = path.resolve(DESKTOP_ROOT, "..", "..")
-// Strategy A: stamp pins first-launch bootstrap to the Python backend repo,
-// not this UI repo. Override with HERMES_BACKEND_REPO_ROOT or HERMES_BACKEND_COMMIT.
-const BACKEND_REPO_ROOT =
-  process.env.HERMES_BACKEND_REPO_ROOT ||
-  path.resolve(MONOREPO_ROOT, "..", "hermes-agent")
+const REPO_ROOT = path.resolve(DESKTOP_ROOT, "..", "..")
 const OUT_DIR = path.join(DESKTOP_ROOT, "build")
 const OUT_FILE = path.join(OUT_DIR, "install-stamp.json")
 
@@ -63,18 +58,16 @@ function fromCI() {
 }
 
 function fromLocalGit() {
-  const sha =
-    process.env.HERMES_BACKEND_COMMIT ||
-    tryExec("git rev-parse HEAD", { cwd: BACKEND_REPO_ROOT })
+  const sha = tryExec("git rev-parse HEAD", { cwd: REPO_ROOT })
   if (!sha) return null
-  const branch = tryExec("git rev-parse --abbrev-ref HEAD", { cwd: BACKEND_REPO_ROOT })
+  const branch = tryExec("git rev-parse --abbrev-ref HEAD", { cwd: REPO_ROOT })
   // `git status --porcelain -uno` is empty iff tracked files match HEAD.
   // We exclude untracked files (-uno) intentionally: a developer who's
   // checked out an installer scratch dir alongside the repo shouldn't
   // poison every local build with a [DIRTY] stamp.  We DO care about
   // tracked-but-modified files because those mean the .exe content
   // differs from the commit being pinned.
-  const status = tryExec("git status --porcelain -uno", { cwd: BACKEND_REPO_ROOT })
+  const status = tryExec("git status --porcelain -uno", { cwd: REPO_ROOT })
   const dirty = status !== null && status.length > 0
   return {
     commit: sha,
@@ -91,10 +84,9 @@ function main() {
       "[write-build-stamp] ERROR: could not determine git commit.\n" +
         "  - $GITHUB_SHA not set\n" +
         "  - `git rev-parse HEAD` failed at " +
-        BACKEND_REPO_ROOT +
+        REPO_ROOT +
         "\n" +
-        "  - Set HERMES_BACKEND_COMMIT or HERMES_BACKEND_REPO_ROOT\n" +
-        "Packaged builds require a backend git ref to pin first-launch install.sh\n" +
+        "Packaged builds require a git ref to pin first-launch install.ps1\n" +
         "against. Run from a git checkout or set $GITHUB_SHA explicitly."
     )
     process.exit(1)
@@ -123,7 +115,7 @@ function main() {
   fs.writeFileSync(OUT_FILE, JSON.stringify(payload, null, 2) + "\n", "utf8")
   console.log(
     "[write-build-stamp] wrote " +
-      path.relative(MONOREPO_ROOT, OUT_FILE) +
+      path.relative(REPO_ROOT, OUT_FILE) +
       " -> " +
       stamp.commit.slice(0, 12) +
       (stamp.branch ? " (" + stamp.branch + ")" : "") +
