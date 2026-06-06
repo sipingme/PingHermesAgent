@@ -7,6 +7,7 @@ import {
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import type * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Suspense, useCallback, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 
@@ -97,9 +98,10 @@ function ChatHeader({
 }: ChatHeaderProps) {
   const sessions = useStore($sessions)
   const pinnedSessionIds = useStore($pinnedSessionIds)
+  const { t } = useTranslation()
   const activeStoredSession =
     sessions.find(session => session.id === selectedSessionId || session._lineage_root_id === selectedSessionId) || null
-  const title = activeStoredSession ? sessionTitle(activeStoredSession) : 'New session'
+  const title = activeStoredSession ? sessionTitle(activeStoredSession) : t('sidebar.new_session')
   // Pins live on the durable lineage-root id, but selectedSessionId is the live
   // (tip) id — resolve through the loaded row so the menu reflects the pin
   // state after auto-compression rotates the id.
@@ -158,6 +160,7 @@ export function ChatView({
   onReload,
   onTranscribeAudio
 }: ChatViewProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const activeSessionId = useStore($activeSessionId)
   const awaitingResponse = useStore($awaitingResponse)
@@ -221,7 +224,7 @@ export function ChatView({
       },
       tools: {
         enabled: true,
-        label: 'Add context',
+        label: t('composer.add_context'),
         suggestions: contextSuggestions
       },
       voice: {
@@ -229,7 +232,7 @@ export function ChatView({
         active: false
       }
     }),
-    [contextSuggestions, currentModel, currentProvider, gatewayOpen, quickModels]
+    [contextSuggestions, currentModel, currentProvider, gatewayOpen, quickModels, t]
   )
 
   const runtimeMessageRepository = useMemo(() => {

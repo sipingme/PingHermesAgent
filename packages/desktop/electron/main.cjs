@@ -55,6 +55,7 @@ try {
     if (resourcesPath) {
       nodePty = require(path.join(resourcesPath, 'native-deps', 'node-pty'))
     }
+
   } catch {
     nodePty = null
   }
@@ -93,6 +94,33 @@ const IS_MAC = process.platform === 'darwin'
 const IS_WINDOWS = process.platform === 'win32'
 const IS_WSL = isWslEnvironment()
 const APP_ROOT = app.getAppPath()
+const DEBUG_MODE = process.env.HERMES_DESKTOP_DEBUG === '1' || process.env.HERMES_DESKTOP_DEBUG === 'true'
+
+// Optional debug mode: enable Chromium/Electron logging early.
+if (DEBUG_MODE) {
+  try {
+    app.commandLine.appendSwitch('enable-logging')
+    app.commandLine.appendSwitch('log-level', '0')
+  } catch {}
+
+  try {
+    const origLog = console.log.bind(console)
+    const origWarn = console.warn.bind(console)
+    const origError = console.error.bind(console)
+    console.log = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origLog(...args)
+    }
+    console.warn = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origWarn(...args)
+    }
+    console.error = (...args) => {
+      try { rememberLog(args.join(' ')) } catch {}
+      origError(...args)
+    }
+  } catch {}
+}
 
 // Remote displays (SSH X11 forwarding, VNC, RDP) make Chromium's GPU
 // compositor flicker — accelerated layers can't be presented cleanly over the

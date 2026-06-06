@@ -79,4 +79,7 @@ if ! hermes_supports_desktop_session_token "$HERMES_DESKTOP_HERMES_ROOT"; then
   echo "           Run: hermes update   OR clone a newer hermes-agent beside this repo." >&2
 fi
 
-exec env -u ELECTRON_RUN_AS_NODE npm run dev --workspace=pinghermesagent-desktop
+# Strip portable/USB env that breaks local Python (e.g. PYTHONHOME from Start *.command).
+exec env -u ELECTRON_RUN_AS_NODE -u PYTHONHOME -u PINGHERMESAGENT_PORTABLE \
+  -u PINGHERMESAGENT_PORTABLE_ROOT -u PINGHERMESAGENT_OFFLINE \
+  npm run dev --workspace=pinghermesagent-desktop

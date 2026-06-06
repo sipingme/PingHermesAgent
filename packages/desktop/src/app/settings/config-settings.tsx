@@ -1,5 +1,6 @@
 import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -19,7 +20,7 @@ import type { ConfigFieldSchema, HermesConfigRecord } from '@/types/hermes'
 import { CONTROL_TEXT, EMPTY_SELECT_VALUE, FIELD_DESCRIPTIONS, FIELD_LABELS, SECTIONS } from './constants'
 import { enumOptionsFor, getNested, includesQuery, prettyName, setNested } from './helpers'
 import { ModelSettings } from './model-settings'
-import { EmptyState, ListRow, LoadingState, SettingsContent } from './primitives'
+import { EmptyState, ListRow, LoadingState, SectionHeading, SettingsContent } from './primitives'
 import type { SearchProps } from './types'
 
 function ConfigField({
@@ -37,15 +38,19 @@ function ConfigField({
   optionLabels?: Record<string, string>
   onChange: (value: unknown) => void
 }) {
-  const label = FIELD_LABELS[schemaKey] ?? prettyName(schemaKey.split('.').pop() ?? schemaKey)
+  const { t } = useTranslation()
+  const fallbackLabel = FIELD_LABELS[schemaKey] ?? prettyName(schemaKey.split('.').pop() ?? schemaKey)
+  const label = t(`config.fields.${schemaKey}.label`, fallbackLabel)
   const normalize = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '')
   const rawDescription = (FIELD_DESCRIPTIONS[schemaKey] ?? schema.description ?? '').trim()
   const normalizedDesc = normalize(rawDescription)
 
-  const description =
-    rawDescription && normalizedDesc !== normalize(label) && normalizedDesc !== normalize(schemaKey)
+  const fallbackDesc =
+    rawDescription && normalizedDesc !== normalize(fallbackLabel) && normalizedDesc !== normalize(schemaKey)
       ? rawDescription
       : undefined
+  const translatedDesc = t(`config.fields.${schemaKey}.desc`, fallbackDesc || '')
+  const description = translatedDesc || undefined
 
   const row = (action: ReactNode, wide = false) => (
     <ListRow action={action} description={description} title={label} wide={wide} />
@@ -54,7 +59,7 @@ function ConfigField({
   if (schema.type === 'boolean') {
     return row(
       <div className="flex items-center justify-end gap-3">
-        <span className="text-xs text-muted-foreground">{value ? 'On' : 'Off'}</span>
+        <span className="text-xs text-muted-foreground">{value ? t('config.common.on') : t('config.common.off')}</span>
         <Switch checked={Boolean(value)} onCheckedChange={onChange} />
       </div>
     )
@@ -75,10 +80,13 @@ function ConfigField({
           {selectOptions.map(option => (
             <SelectItem key={option || EMPTY_SELECT_VALUE} value={option || EMPTY_SELECT_VALUE}>
               {option
-                ? (optionLabels?.[option] ?? prettyName(option))
+                ? (optionLabels?.[option] ??
+                    (schemaKey === 'display.personality'
+                      ? t(`config.personalities.${option}`, prettyName(option))
+                      : t(`config.enums.${schemaKey}.${option}`, prettyName(option))))
                 : schemaKey === 'display.personality'
-                  ? 'None'
-                  : '(none)'}
+                  ? t('config.common.none')
+                  : t('config.common.none_paren')}
             </SelectItem>
           ))}
         </SelectContent>
@@ -98,7 +106,7 @@ function ConfigField({
             onChange(n)
           }
         }}
-        placeholder="Not set"
+        placeholder={t('config.common.not_set')}
         type="number"
         value={value === undefined || value === null ? '' : String(value)}
       />
@@ -117,7 +125,7 @@ function ConfigField({
               .filter(Boolean)
           )
         }
-        placeholder="comma-separated values"
+        placeholder={t('config.common.csv_placeholder')}
         value={Array.isArray(value) ? value.join(', ') : String(value ?? '')}
       />
     )
@@ -134,7 +142,7 @@ function ConfigField({
             /* keep last valid */
           }
         }}
-        placeholder="Not set"
+        placeholder={t('config.common.not_set')}
         spellCheck={false}
         value={JSON.stringify(value, null, 2)}
       />,
@@ -149,14 +157,14 @@ function ConfigField({
       <Textarea
         className={cn('min-h-24 resize-y bg-background', CONTROL_TEXT)}
         onChange={e => onChange(e.target.value)}
-        placeholder="Not set"
+        placeholder={t('config.common.not_set')}
         value={String(value ?? '')}
       />
     ) : (
       <Input
         className={cn('h-8', CONTROL_TEXT)}
         onChange={e => onChange(e.target.value)}
-        placeholder="Not set"
+        placeholder={t('config.common.not_set')}
         value={String(value ?? '')}
       />
     ),
@@ -176,6 +184,7 @@ export function ConfigSettings({
   onMainModelChanged?: (provider: string, model: string) => void
   importInputRef: React.RefObject<HTMLInputElement | null>
 }) {
+  const { t } = useTranslation()
   const [config, setConfig] = useState<HermesConfigRecord | null>(null)
   const [_defaults, setDefaults] = useState<HermesConfigRecord | null>(null)
   const [schema, setSchema] = useState<Record<string, ConfigFieldSchema> | null>(null)
@@ -196,7 +205,7 @@ export function ConfigSettings({
         setDefaults(d)
         setSchema(s.fields)
       })
-      .catch(err => notifyError(err, 'Settings failed to load'))
+      .catch(err => notifyError(err, t('config.common.load_failed')))
 
     return () => void (cancelled = true)
   }, [])
@@ -230,7 +239,7 @@ export function ConfigSettings({
 
     const v = saveVersion
 
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void (async () => {
         try {
           await saveHermesConfig(config)
@@ -240,13 +249,13 @@ export function ConfigSettings({
           }
         } catch (err) {
           if (saveVersionRef.current === v) {
-            notifyError(err, 'Autosave failed')
+            notifyError(err, t('config.common.autosave_failed'))
           }
         }
       })()
     }, 550)
 
-    return () => window.clearTimeout(t)
+    return () => window.clearTimeout(timer)
   }, [config, onConfigSaved, saveVersion])
 
   const updateConfig = (next: HermesConfigRecord) => {
@@ -296,6 +305,7 @@ export function ConfigSettings({
   }, [schema, query])
 
   const fields = query.trim() ? matched : (sectionFields.get(activeSectionId) ?? [])
+  const activeSection = SECTIONS.find(s => s.id === activeSectionId)
 
   function handleImport(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -320,11 +330,21 @@ export function ConfigSettings({
   }
 
   if (!config || !schema) {
-    return <LoadingState label="Loading Hermes configuration..." />
+    return <LoadingState label={t('config.common.loading')} />
   }
 
   return (
     <SettingsContent>
+      {!query.trim() && activeSection && activeSectionId !== 'model' && (
+        <div className="mb-5">
+          <SectionHeading icon={activeSection.icon} title={t(`settings.${activeSection.id}`, activeSection.label)} />
+          {activeSection.description && (
+            <p className="max-w-2xl text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
+              {t(`settings.section_desc.${activeSection.id}`, activeSection.description)}
+            </p>
+          )}
+        </div>
+      )}
       {activeSectionId === 'model' && !query.trim() && (
         <div className="mb-6">
           <ModelSettings onMainModelChanged={onMainModelChanged} />
@@ -332,11 +352,11 @@ export function ConfigSettings({
       )}
       {query.trim() && (
         <div className="mb-4 text-xs text-muted-foreground">
-          {fields.length} result{fields.length === 1 ? '' : 's'}
+          {t('config.common.search_results', { count: fields.length })}
         </div>
       )}
       {fields.length === 0 ? (
-        <EmptyState description="Try a different search term or choose another section." title="No matching settings" />
+        <EmptyState description={t('config.common.empty_desc')} title={t('config.common.empty_title')} />
       ) : (
         <div className="divide-y divide-border/40">
           {fields.map(([key, field]) => (

@@ -201,14 +201,15 @@ export function TitlebarControls({
 }
 
 function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const { t } = useTranslation()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Profiles"
+          aria-label={t('profiles.title')}
           className={cn(titlebarButtonClass, 'grid place-items-center bg-transparent select-none [&_svg]:size-4')}
           onPointerDown={event => event.stopPropagation()}
-          title="Profiles"
+          title={t('profiles.title')}
           type="button"
         >
           <Codicon name="account" />
@@ -216,9 +217,9 @@ function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavig
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64" sideOffset={8}>
         <DropdownMenuLabel>
-          <div className="text-sm font-medium text-foreground">Profiles</div>
+          <div className="text-sm font-medium text-foreground">{t('profiles.title')}</div>
           <div className="mt-1 text-xs font-normal leading-4 text-muted-foreground">
-            Advanced Hermes environments for separate personas, config, skills, and SOUL.md.
+            {t('profiles.description')}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -229,7 +230,7 @@ function ProfilesMenuButton({ navigate }: { navigate: ReturnType<typeof useNavig
           }}
         >
           <Codicon name="account" size="1rem" />
-          <span>Manage profiles</span>
+          <span>{t('profiles.manage')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

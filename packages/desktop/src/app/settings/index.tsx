@@ -64,12 +64,12 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
       URL.revokeObjectURL(url)
       triggerHaptic('success')
     } catch (err) {
-      notifyError(err, 'Export failed')
+      notifyError(err, t('settings.export_failed'))
     }
   }
 
   const resetConfig = async () => {
-    if (!window.confirm('Reset all settings to Hermes defaults?')) {
+    if (!window.confirm(t('settings.reset_confirm'))) {
       return
     }
 
@@ -78,7 +78,7 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
       triggerHaptic('success')
       onConfigSaved?.()
     } catch (err) {
-      notifyError(err, 'Reset failed')
+      notifyError(err, t('settings.reset_failed'))
     }
   }
 
@@ -159,7 +159,7 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
             onClick={() => setActiveView('about')}
           />
           <div className="mt-auto flex items-center gap-1 pt-2">
-            <OverlayIconButton onClick={() => void exportConfig()} title="Export config">
+            <OverlayIconButton onClick={() => void exportConfig()} title={t('settings.export_config')}>
               <IconDownload className="size-3.5" />
             </OverlayIconButton>
             <OverlayIconButton
@@ -167,7 +167,7 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
                 triggerHaptic('open')
                 importInputRef.current?.click()
               }}
-              title="Import config"
+              title={t('settings.import_config')}
             >
               <IconUpload className="size-3.5" />
             </OverlayIconButton>
@@ -177,7 +177,7 @@ export function SettingsView({ gateway, onClose, onConfigSaved, onMainModelChang
                 triggerHaptic('warning')
                 void resetConfig()
               }}
-              title="Reset to defaults"
+              title={t('settings.reset_defaults')}
             >
               <IconRefresh className="size-3.5" />
             </OverlayIconButton>

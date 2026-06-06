@@ -187,6 +187,7 @@ function EnvProviderGroup({
   group: ProviderGroup
   rowProps: Omit<EnvRowProps, 'varKey' | 'info'>
 }) {
+  const { t } = useTranslation()
   const setCount = group.entries.filter(([, info]) => info.is_set).length
   // Default-expand providers that already have at least one key set; the
   // user is much more likely to be coming back to edit those than to start
@@ -203,11 +204,11 @@ function EnvProviderGroup({
         <span className="flex min-w-0 items-center gap-2">
           <Zap className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm font-medium">
-            {group.name === 'Other' ? 'Other providers' : group.name}
+            {group.name === 'Other' ? t('keys.other_providers') : group.name}
           </span>
-          {setCount > 0 && <Pill tone="primary">{setCount} set</Pill>}
+          {setCount > 0 && <Pill tone="primary">{t('keys.set_count', { count: setCount })}</Pill>}
         </span>
-        <span className="text-xs text-muted-foreground">{group.entries.length} keys</span>
+        <span className="text-xs text-muted-foreground">{t('keys.key_count', { count: group.entries.length })}</span>
       </button>
       {expanded && (
         <div className="grid gap-2 bg-muted/20 p-3">

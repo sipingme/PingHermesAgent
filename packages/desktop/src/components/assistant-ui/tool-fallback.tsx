@@ -3,6 +3,7 @@
 import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { createContext, type FC, type PropsWithChildren, type ReactNode, useContext, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/shallow'
 
 import { AnsiText } from '@/components/assistant-ui/ansi-text'
@@ -186,6 +187,7 @@ function useDisclosureOpen(disclosureId: string, fallbackOpen = false): boolean 
 }
 
 function ToolEntry({ part }: ToolEntryProps) {
+  const { t } = useTranslation()
   const messageId = useAuiState(s => s.message.id)
   const messageRunning = useAuiState(selectMessageRunning)
   const embedded = useContext(ToolEmbedContext)
@@ -208,8 +210,8 @@ function ToolEntry({ part }: ToolEntryProps) {
   const view = useMemo(() => {
     const p = !isPending && part.result === undefined ? { ...part, result: {} } : part
 
-    return buildToolView(p, inlineDiff)
-  }, [inlineDiff, isPending, part])
+    return buildToolView(p, inlineDiff, t)
+  }, [inlineDiff, isPending, part, t])
 
   const detailSections = useMemo(() => {
     if (!view.detail) {
@@ -250,7 +252,7 @@ function ToolEntry({ part }: ToolEntryProps) {
     (part.toolName === 'terminal' || part.toolName === 'execute_code' || part.toolName === 'read_file')
 
   const hasSearchHits = Boolean(view.searchHits?.length)
-  const searchResultsLabel = part.toolName === 'web_search' ? 'Search results' : view.detailLabel
+  const searchResultsLabel = part.toolName === 'web_search' ? t('tool.search_results') : view.detailLabel
 
   const showRawSearchDrilldown =
     part.toolName === 'web_search' &&
@@ -266,7 +268,7 @@ function ToolEntry({ part }: ToolEntryProps) {
     toolViewMode === 'technical'
   )
 
-  const copyAction = useMemo(() => toolCopyPayload(part, view), [part, view])
+  const copyAction = useMemo(() => toolCopyPayload(part, view, t), [part, view, t])
 
   const trailing =
     isPending && !embedded ? (
@@ -429,6 +431,7 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
   endIndex,
   startIndex
 }) => {
+  const { t } = useTranslation()
   const messageId = useAuiState(s => s.message.id)
   const messageRunning = useAuiState(selectMessageRunning)
 
@@ -468,14 +471,10 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
     displayStatus === 'running' || failedStepCount === 0
       ? ''
       : displayStatus === 'warning'
-        ? failedStepCount === 1
-          ? 'Recovered after 1 failed step'
-          : `Recovered after ${failedStepCount} failed steps`
-        : failedStepCount === 1
-          ? '1 step failed'
-          : `${failedStepCount} steps failed`
+        ? t('tool.status.recovered', { count: failedStepCount })
+        : t('tool.status.failed', { count: failedStepCount })
 
-  const groupCopyText = useMemo(() => buildGroupCopyText(visibleParts), [visibleParts])
+  const groupCopyText = useMemo(() => buildGroupCopyText(visibleParts, t), [visibleParts, t])
   const previewTargets = useMemo(() => groupPreviewTargets(visibleParts), [visibleParts])
 
   return (
@@ -488,7 +487,7 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
             open={open}
             trailing={
               !isRunning && groupCopyText ? (
-                <CopyButton appearance="tool-row" label="Copy activity" stopPropagation text={groupCopyText} />
+                <CopyButton appearance="tool-row" label={t('tool.copy_activity')} stopPropagation text={groupCopyText} />
               ) : undefined
             }
           >
@@ -501,7 +500,7 @@ export const ToolGroupSlot: FC<PropsWithChildren<{ endIndex: number; startIndex:
                   displayStatus === 'warning' && 'text-amber-700 dark:text-amber-300'
                 )}
               >
-                {groupTitle(visibleParts)}
+                {groupTitle(visibleParts, t)}
               </FadeText>
               {totalDurationLabel && <span className={TOOL_HEADER_DURATION_CLASS}>{totalDurationLabel}</span>}
             </span>

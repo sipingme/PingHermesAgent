@@ -26,6 +26,7 @@ import {
   useRef,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { COMPOSER_DROP_ACTIVE_CLASS, COMPOSER_DROP_FADE_CLASS } from '@/app/chat/composer/drop-affordance'
 import {
@@ -347,6 +348,7 @@ const ThinkingDisclosure: FC<{
   const contentRef = useRef<HTMLDivElement | null>(null)
   const enterRef = useEnterAnimation(messageRunning, timerKey)
 
+  const { t } = useTranslation()
   const open = userOpen ?? pending
   const isPreview = pending && userOpen === null
 
@@ -391,7 +393,7 @@ const ThinkingDisclosure: FC<{
               pending && 'shimmer text-foreground/55'
             )}
           >
-            Thinking
+            {t('thread.thinking')}
           </span>
           {pending && (
             <ActivityTimerText

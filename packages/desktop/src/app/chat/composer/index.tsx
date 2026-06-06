@@ -12,6 +12,7 @@ import {
   useRef,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { hermesDirectiveFormatter } from '@/components/assistant-ui/directive-text'
 import { Button } from '@/components/ui/button'
@@ -107,6 +108,7 @@ export function ChatBar({
   onSubmit,
   onTranscribeAudio
 }: ChatBarProps) {
+  const { t } = useTranslation()
   const aui = useAui()
   const draft = useAuiState(s => s.composer.text)
   const attachments = useStore($composerAttachments)
@@ -162,9 +164,9 @@ export function ChatBar({
   // restore (e.g. after the Mac slept) so the stuck state reads as recoverable.
   const placeholder = disabled
     ? gatewayState === 'closed' || gatewayState === 'error'
-      ? 'Reconnecting to Hermes…'
-      : 'Starting Hermes...'
-    : 'Send follow-up'
+      ? t('composer.reconnecting')
+      : t('composer.starting')
+    : t('composer.placeholder')
 
   const focusInput = useCallback(() => {
     focusComposerInput(editorRef.current)
@@ -1096,7 +1098,7 @@ export function ChatBar({
   const input = (
     <div className={cn('relative', stacked ? 'w-full' : 'min-w-(--composer-input-inline-min-width) flex-1')}>
       <div
-        aria-label="Message"
+        aria-label={t('composer.message')}
         autoCapitalize="off"
         autoCorrect="off"
         className={cn(
@@ -1233,7 +1235,7 @@ export function ChatBar({
                 {queueEdit && editingQueuedPrompt && (
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-[color-mix(in_srgb,var(--dt-composer-ring)_32%,transparent)] bg-accent/18 px-2 py-1">
                     <div className="min-w-0 text-[0.7rem] text-muted-foreground/88">
-                      Editing queued turn in composer
+                      {t('composer.editing_queued_turn')}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
@@ -1242,14 +1244,14 @@ export function ChatBar({
                         type="button"
                         variant="ghost"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                       <Button
                         className="h-6 rounded-md px-2 text-[0.68rem]"
                         onClick={() => exitQueuedEdit('save')}
                         type="button"
                       >
-                        Save
+                        {t('common.save')}
                       </Button>
                     </div>
                   </div>

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RefreshCw } from '@/lib/icons'
@@ -52,6 +53,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 function RootErrorFallback({ error, reset }: ErrorBoundaryFallbackProps) {
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-(--ui-chat-surface-background) p-6">
       <div className="w-full max-w-[40rem] overflow-hidden rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-chat-bubble-background) shadow-sm">
@@ -60,9 +62,9 @@ function RootErrorFallback({ error, reset }: ErrorBoundaryFallbackProps) {
             <AlertTriangle className="size-5" />
           </div>
           <div>
-            <h2 className="text-[0.9375rem] font-semibold tracking-tight">Something broke in the interface</h2>
+            <h2 className="text-[0.9375rem] font-semibold tracking-tight">{t('error_boundary.title')}</h2>
             <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">
-              The view hit an unexpected error. Your chats and settings are safe - try again, or reload the window.
+              {t('error_boundary.desc')}
             </p>
           </div>
         </div>
@@ -75,13 +77,13 @@ function RootErrorFallback({ error, reset }: ErrorBoundaryFallbackProps) {
           <div className="flex flex-wrap gap-2">
             <Button onClick={reset}>
               <RefreshCw className="size-4" />
-              Try again
+              {t('error_boundary.try_again')}
             </Button>
             <Button onClick={() => window.location.reload()} variant="outline">
-              Reload window
+              {t('error_boundary.reload')}
             </Button>
             <Button onClick={() => void window.hermesDesktop?.revealLogs()?.catch(() => undefined)} variant="ghost">
-              Open logs
+              {t('error_boundary.open_logs')}
             </Button>
           </div>
         </div>

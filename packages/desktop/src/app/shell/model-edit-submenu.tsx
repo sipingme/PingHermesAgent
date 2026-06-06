@@ -1,4 +1,5 @@
 import { useStore } from '@nanostores/react'
+import { useTranslation } from 'react-i18next'
 
 import {
   DropdownMenuItem,
@@ -23,11 +24,11 @@ import {
 // Hermes' real reasoning levels (see VALID_REASONING_EFFORTS); `none` is owned
 // by the Thinking toggle, not the radio.
 const EFFORT_OPTIONS = [
-  { value: 'minimal', label: 'Minimal' },
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'xhigh', label: 'Max' }
+  { value: 'minimal', labelKey: 'model_menu.effort.minimal' },
+  { value: 'low', labelKey: 'model_menu.effort.low' },
+  { value: 'medium', labelKey: 'model_menu.effort.medium' },
+  { value: 'high', labelKey: 'model_menu.effort.high' },
+  { value: 'xhigh', labelKey: 'model_menu.effort.xhigh' }
 ] as const
 
 /** How "fast" is achieved for a given model — two different mechanisms:
@@ -100,6 +101,7 @@ export function ModelEditSubmenu({
   reasoning,
   requestGateway
 }: ModelEditSubmenuProps) {
+  const { t } = useTranslation()
   // Reactive session state comes straight from the stores rather than being
   // drilled through the panel, so editing it re-renders only this submenu.
   const activeSessionId = useStore($activeSessionId)
@@ -136,7 +138,7 @@ export function ModelEditSubmenu({
       })
     } catch (err) {
       setCurrentReasoningEffort(rollback)
-      notifyError(err, 'Model option update failed')
+      notifyError(err, t('model_menu.error.update'))
     }
   }
 
@@ -166,7 +168,7 @@ export function ModelEditSubmenu({
           })
         } catch (err) {
           setCurrentFastMode(!enabled)
-          notifyError(err, 'Fast mode update failed')
+          notifyError(err, t('model_menu.error.fast'))
         }
       })()
     }
@@ -178,16 +180,16 @@ export function ModelEditSubmenu({
   return (
     <DropdownMenuSubContent className="w-52 p-0" sideOffset={4}>
       {!hasFast && !reasoning ? (
-        <div className="px-2.5 py-3 text-xs text-(--ui-text-tertiary)">No options for this model</div>
+        <div className="px-2.5 py-3 text-xs text-(--ui-text-tertiary)">{t('model_menu.no_options')}</div>
       ) : (
         <>
-          <DropdownMenuLabel className={dropdownMenuSectionLabel}>Options</DropdownMenuLabel>
+          <DropdownMenuLabel className={dropdownMenuSectionLabel}>{t('model_menu.options')}</DropdownMenuLabel>
           {reasoning ? (
             <DropdownMenuItem
               className={cn(dropdownMenuRow, 'cursor-pointer')}
               onSelect={event => event.preventDefault()}
             >
-              Thinking
+              {t('model_menu.thinking')}
               <Switch
                 checked={thinkingOn}
                 className="ml-auto cursor-pointer"
@@ -200,14 +202,14 @@ export function ModelEditSubmenu({
               className={cn(dropdownMenuRow, 'cursor-pointer')}
               onSelect={event => event.preventDefault()}
             >
-              Fast
+              {t('model_menu.fast')}
               <Switch checked={fastOn} className="ml-auto cursor-pointer" onCheckedChange={toggleFast} />
             </DropdownMenuItem>
           ) : null}
           {reasoning ? (
             <>
               <DropdownMenuSeparator className="mx-0" />
-              <DropdownMenuLabel className={dropdownMenuSectionLabel}>Effort</DropdownMenuLabel>
+              <DropdownMenuLabel className={dropdownMenuSectionLabel}>{t('model_menu.effort_title')}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 onValueChange={value => void patchReasoning(value, currentReasoningEffort)}
                 value={effort}
@@ -219,7 +221,7 @@ export function ModelEditSubmenu({
                     onSelect={event => event.preventDefault()}
                     value={option.value}
                   >
-                    {option.label}
+                    {t(option.labelKey)}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>

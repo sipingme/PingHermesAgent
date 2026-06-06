@@ -50,7 +50,13 @@ const PLATFORM_ICONS: Record<string, PlatformIconSpec> = {
   api_server: { Icon: Globe, color: '#64748B', kind: 'generic' },
   weixin: { Icon: SiWechat, color: '#07C160', kind: 'brand' },
   qqbot: { Icon: SiQq, color: '#EB1923', kind: 'brand' },
-  yuanbao: { Icon: SiBilibili, color: '#FB7299', kind: 'brand' }
+  yuanbao: { Icon: SiBilibili, color: '#FB7299', kind: 'brand' },
+  teams: { Icon: Globe, color: '#6264A7', kind: 'generic' },
+  simplex: { Icon: MessageSquareText, color: '#06B6D4', kind: 'generic' },
+  ntfy: { Icon: Globe, color: '#3388FF', kind: 'generic' },
+  line: { Icon: MessageSquareText, color: '#06C755', kind: 'generic' },
+  irc: { Icon: Globe, color: '#4A154B', kind: 'generic' },
+  google_chat: { Icon: MessageSquareText, color: '#00832D', kind: 'generic' }
 }
 
 interface PlatformAvatarProps {

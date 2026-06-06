@@ -1,4 +1,5 @@
 import type * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,7 @@ export function UrlDialog({
   open: boolean
   value: string
 }) {
+  const { t } = useTranslation()
   const trimmed = value.trim()
   const looksLikeUrl = trimmed.length > 0 && URL_HINT.test(trimmed)
 
@@ -43,8 +45,8 @@ export function UrlDialog({
             <Globe className="size-4" />
           </span>
           <div className="grid gap-0.5 text-left">
-            <DialogTitle>Attach a URL</DialogTitle>
-            <DialogDescription>Hermes will fetch the page and include it as context for this turn.</DialogDescription>
+            <DialogTitle>{t('composer.url_dialog.title')}</DialogTitle>
+            <DialogDescription>{t('composer.url_dialog.desc')}</DialogDescription>
           </div>
         </DialogHeader>
         <form
@@ -60,23 +62,23 @@ export function UrlDialog({
               autoCorrect="off"
               inputMode="url"
               onChange={e => onChange(e.target.value)}
-              placeholder="https://example.com/post"
+              placeholder={t('composer.url_dialog.placeholder')}
               ref={inputRef}
               spellCheck={false}
               value={value}
             />
             {trimmed.length > 0 && !looksLikeUrl && (
               <p className="text-xs text-muted-foreground/85">
-                Include the full URL, e.g. <span className="font-mono">https://…</span>
+                {t('composer.url_dialog.hint')}
               </p>
             )}
           </div>
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button disabled={!looksLikeUrl} type="submit">
-              Attach
+              {t('composer.url_dialog.attach')}
             </Button>
           </DialogFooter>
         </form>
