@@ -101,6 +101,23 @@ jobs:
           npm run package
           node scripts/run-electron-builder.mjs --mac --publish never -c.mac.notarize=false
 
+      - name: Assemble macOS portable USB zips (online backend)
+        if: matrix.platform == 'mac'
+        run: npm run package:portable:mac
+
+      - name: Rename macOS portable (online) artifacts to include suffix
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for arch in arm64 x64; do
+            src="packages/desktop/release/PingHermesAgentPortable-${VERSION}-mac-${arch}.zip"
+            if [[ -f "$src" ]]; then
+              dest="packages/desktop/release/PingHermesAgentPortable-${VERSION}-mac-${arch}-online.zip"
+              mv -v "$src" "$dest"
+            fi
+          done
+
       - name: Assemble macOS portable USB zips (offline backend)
         if: matrix.platform == 'mac'
         env:
