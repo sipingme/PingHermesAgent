@@ -135,6 +135,10 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           for arch in arm64 x64; do
             dir="packages/desktop/release/.portable-staging/PingHermesAgentPortable-${VERSION}-mac-${arch}"
+            if [[ ! -d "$dir" ]]; then
+              echo "ERROR: missing portable staging dir for mac-${arch} (electron-builder must emit both arch zips)" >&2
+              exit 1
+            fi
             test -x "$dir/data/hermes/hermes-agent/venv/bin/python"
             # Verify import using bundled relocatable Python only
             "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import hermes_cli; print('IMPORT_OK')"

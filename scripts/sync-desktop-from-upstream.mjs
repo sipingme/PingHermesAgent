@@ -215,6 +215,12 @@ function patchPackageJson() {
   if (upstream.build.dmg) {
     upstream.build.dmg.title = 'Install PingHermesAgent';
   }
+  if (upstream.build.mac) {
+    upstream.build.mac.target = [
+      { target: 'dmg', arch: ['x64', 'arm64'] },
+      { target: 'zip', arch: ['x64', 'arm64'] },
+    ];
+  }
 
   delete upstream.dependencies?.i18next;
   delete upstream.dependencies?.['react-i18next'];

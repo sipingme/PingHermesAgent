@@ -2,7 +2,7 @@
   "name": "pinghermesagent-desktop",
   "productName": "PingHermesAgent",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "PingHermesAgent desktop shell for Hermes Agent (uses official Nous Python backend).",
   "author": "Ping",
   "type": "module",
@@ -186,8 +186,20 @@
       "gatekeeperAssess": false,
       "hardenedRuntime": true,
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ]
     },
     "dmg": {
