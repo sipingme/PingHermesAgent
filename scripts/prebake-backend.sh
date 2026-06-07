@@ -13,6 +13,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HERMES="${HERMES_HOME:-$ROOT/data/hermes}"
+AGENT="$HERMES/hermes-agent"
 SKIP_INSTALL=false
 USE_STANDALONE_PYTHON="${PINGHERMESAGENT_PREBAKE_STANDALONE:-}"  # set to 1 to use relocatable Python
 PY_TARBALL_URL="${PINGHERMESAGENT_PYTHON_TARBALL_URL:-}"         # optional override for standalone Python tarball URL
@@ -25,7 +26,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [--skip-install]"
       echo "  HERMES_HOME  target data dir (default: $ROOT/data/hermes)"
       echo "  PINGHERMESAGENT_PREBAKE_STANDALONE=1  use relocatable standalone Python"
-      echo "  PINGHERMESAGENT_PYTHON_TARBALL_URL    tarball URL of standalone Python (macOS arch-specific)"
+      echo "  PINGHERMESAGENT_PYTHON_TARBALL_URL    tarball URL of standalone Python"
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -35,7 +36,42 @@ done
 export HERMES_HOME="$HERMES"
 mkdir -p "$HERMES/home" "$HERMES/logs" "$HERMES/cache/uv"
 
-VENV_PY="$HERMES/hermes-agent/venv/bin/python"
+is_windows_bash() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+  esac
+  return 1
+}
+
+resolve_venv_python() {
+  if [[ -x "$AGENT/venv/Scripts/python.exe" ]]; then
+    echo "$AGENT/venv/Scripts/python.exe"
+  elif [[ -x "$AGENT/venv/bin/python" ]]; then
+    echo "$AGENT/venv/bin/python"
+  else
+    return 1
+  fi
+}
+
+standalone_python_bin() {
+  if [[ -x "$HERMES/python/python.exe" ]]; then
+    echo "$HERMES/python/python.exe"
+  elif [[ -x "$HERMES/python/bin/python3" ]]; then
+    echo "$HERMES/python/bin/python3"
+  else
+    return 1
+  fi
+}
+
+run_install_backend() {
+  if is_windows_bash; then
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/install-backend.ps1"
+  else
+    "$ROOT/scripts/install-backend.sh"
+  fi
+}
+
+VENV_PY="$(resolve_venv_python 2>/dev/null || true)"
 
 resolve_uv() {
   local candidate
@@ -61,9 +97,8 @@ pip_install() {
 }
 
 ensure_standalone_python() {
-  # Provision a relocatable standalone Python into $HERMES/python if requested
-  local pybin="$HERMES/python/bin/python3"
-  if [[ -x "$pybin" ]]; then
+  local pybin
+  if pybin="$(standalone_python_bin 2>/dev/null)"; then
     echo "==> Using existing standalone Python at $HERMES/python"
     echo "$pybin"
     return 0
@@ -96,7 +131,6 @@ ensure_standalone_python() {
       tar -xf "$tarpath" -C "$HERMES/python" --strip-components=1
       ;;
     *)
-      # Try generic tar probing
       if tar -tf "$tarpath" >/dev/null 2>&1; then
         tar -xf "$tarpath" -C "$HERMES/python" --strip-components=1
       else
@@ -105,37 +139,37 @@ ensure_standalone_python() {
       fi
       ;;
   esac
-  if [[ ! -x "$HERMES/python/bin/python3" ]]; then
-    echo "Standalone Python missing python3 under $HERMES/python/bin" >&2
+  if ! pybin="$(standalone_python_bin)"; then
+    echo "Standalone Python missing executable under $HERMES/python" >&2
     exit 1
   fi
-  echo "$HERMES/python/bin/python3"
+  echo "$pybin"
 }
 
 if [[ "$SKIP_INSTALL" == false ]]; then
-  if [[ -x "$VENV_PY" ]] && "$VENV_PY" -c "import hermes_cli" 2>/dev/null; then
-    echo "Backend already present at $HERMES/hermes-agent — skipping install"
+  if [[ -n "$VENV_PY" ]] && "$VENV_PY" -c "import hermes_cli" 2>/dev/null; then
+    echo "Backend already present at $AGENT — skipping install"
   else
     if [[ "$USE_STANDALONE_PYTHON" == 1 ]]; then
       echo "==> Installing backend with relocatable standalone Python (via vendored installer)..."
       PYBIN="$(ensure_standalone_python)"
-      # Ensure vendored installer picks our standalone python when creating venv
       PATH_PREV="$PATH"
-      export PATH="$HERMES/python/bin:$PATH"
-      "$ROOT/scripts/install-backend.sh"
+      export PATH="$HERMES/python/bin:$HERMES/python:$PATH"
+      run_install_backend
       export PATH="$PATH_PREV"
-      VENV_PY="$HERMES/hermes-agent/venv/bin/python"
+      VENV_PY="$(resolve_venv_python)"
       pip_install -U pip wheel setuptools >/dev/null 2>&1 || true
       "$VENV_PY" -c 'import hermes_cli' >/dev/null
     else
       echo "==> Installing backend with system Python (requires network: git + PyPI)..."
-      "$ROOT/scripts/install-backend.sh"
+      run_install_backend
+      VENV_PY="$(resolve_venv_python)"
     fi
   fi
 fi
 
-if [[ ! -x "$VENV_PY" ]]; then
-  echo "Prebake failed: $VENV_PY not found" >&2
+if [[ -z "$VENV_PY" ]] || [[ ! -x "$VENV_PY" ]]; then
+  echo "Prebake failed: venv python not found under $AGENT/venv" >&2
   exit 1
 fi
 
@@ -146,7 +180,7 @@ fi
 
 echo "==> Installing desktop web stack (fastapi + uvicorn + pty)..."
 (
-  cd "$HERMES/hermes-agent"
+  cd "$AGENT"
   pip_install --no-cache -e '.[web,pty]'
 )
 "$VENV_PY" -c "import fastapi, uvicorn, hermes_cli; print('web deps OK')"
@@ -157,9 +191,9 @@ HERMES_HOME="$HERMES" "$ROOT/scripts/stamp-bootstrap-marker.sh"
 echo ""
 echo "Prebake complete: $HERMES"
 echo "  Python: $VENV_PY"
-echo "  Hermes:  $HERMES/hermes-agent/venv/bin/hermes"
+echo "  Hermes:  $AGENT/venv/bin/hermes (or venv/Scripts/hermes.exe on Windows)"
 echo ""
 echo "Optional (configure API keys before copying to USB):"
-echo "  HERMES_HOME=\"$HERMES\" HOME=\"$HERMES/home\" \"$HERMES/hermes-agent/venv/bin/hermes\" setup"
+echo "  HERMES_HOME=\"$HERMES\" HOME=\"$HERMES/home\" \"$VENV_PY\" -m hermes_cli setup"
 echo ""
 echo "Next: ./scripts/assemble-portable.sh --data-source \"$HERMES\" /path/to/PingHermesAgent.app"

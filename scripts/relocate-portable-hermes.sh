@@ -22,6 +22,9 @@ if [[ -f "$PYVENV" ]]; then
   if [[ -x "$HERMES/python/bin/python3" ]]; then
     sed -i.bak "s|^home = .*|home = $HERMES/python/bin|" "$PYVENV"
     rm -f "$PYVENV.bak"
+  elif [[ -x "$HERMES/python/python.exe" ]]; then
+    sed -i.bak "s|^home = .*|home = $HERMES/python|" "$PYVENV"
+    rm -f "$PYVENV.bak"
   fi
 fi
 

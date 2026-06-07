@@ -41,6 +41,80 @@ function bundleName(platform, arch) {
   return `PingHermesAgentPortable-${VERSION}-${platform}-${arch}`;
 }
 
+function resolveVenvPython(hermesHome) {
+  const winPy = join(hermesHome, 'hermes-agent/venv/Scripts/python.exe');
+  const unixPy = join(hermesHome, 'hermes-agent/venv/bin/python');
+  if (existsSync(winPy)) {
+    return winPy;
+  }
+  if (existsSync(unixPy)) {
+    return unixPy;
+  }
+  return null;
+}
+
+function applyStandalonePrebakeEnv(platform, arch) {
+  const prevTar = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  const prevStandalone = process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
+  let standaloneTemporarilyDisabled = false;
+
+  if (process.env.PINGHERMESAGENT_PREBAKE_STANDALONE !== '1') {
+    return () => {};
+  }
+
+  let chosen;
+  if (platform === 'mac') {
+    const armUrl = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_ARM64;
+    const x64Url = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_X64;
+    chosen = arch === 'arm64' ? armUrl : x64Url;
+  } else if (platform === 'win') {
+    chosen =
+      process.env.PINGHERMESAGENT_STANDALONE_PY_URL_WIN_X64 ??
+      process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  } else if (platform === 'linux') {
+    chosen =
+      process.env.PINGHERMESAGENT_STANDALONE_PY_URL_LINUX_X64 ??
+      process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+  }
+
+  if (chosen) {
+    process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = chosen;
+  } else {
+    delete process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
+    standaloneTemporarilyDisabled = true;
+    console.warn(
+      `[assemble-portable] No standalone Python tarball URL for ${platform}-${arch}; falling back to system-Python prebake`,
+    );
+  }
+
+  return () => {
+    if (prevTar === undefined) {
+      delete process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
+    } else {
+      process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = prevTar;
+    }
+    if (standaloneTemporarilyDisabled) {
+      process.env.PINGHERMESAGENT_PREBAKE_STANDALONE = prevStandalone;
+    }
+  };
+}
+
+function runShellScript(scriptPath, { env = process.env } = {}) {
+  if (process.platform === 'win32') {
+    execFileSync('bash', [scriptPath], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      env,
+    });
+    return;
+  }
+  execFileSync(scriptPath, {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env,
+  });
+}
+
 function copyPortableTemplate(outDir) {
   mkdirSync(join(outDir, 'data/desktop'), { recursive: true });
   mkdirSync(join(outDir, 'data/hermes/home'), { recursive: true });
@@ -109,10 +183,6 @@ function zipDirectory(sourceDir, zipPath) {
 }
 
 function prebakeBackend(outHermesHome) {
-  if (process.platform === 'win32') {
-    console.warn('[assemble-portable] Skip prebake on Windows — run on macOS/Linux or copy data/hermes');
-    return;
-  }
   console.log(`[assemble-portable] Prebaking backend into ${outHermesHome}...`);
   const env = {
     ...process.env,
@@ -125,33 +195,26 @@ function prebakeBackend(outHermesHome) {
   if (process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL) {
     env.PINGHERMESAGENT_PYTHON_TARBALL_URL = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
   }
-  execFileSync(join(ROOT, 'scripts/prebake-backend.sh'), {
-    cwd: ROOT,
-    stdio: 'inherit',
-    env,
-    shell: process.platform === 'win32',
-  });
-  execFileSync(join(ROOT, 'scripts/relocate-portable-hermes.sh'), {
-    cwd: ROOT,
-    stdio: 'inherit',
+  runShellScript(join(ROOT, 'scripts/prebake-backend.sh'), { env });
+  runShellScript(join(ROOT, 'scripts/relocate-portable-hermes.sh'), {
     env: { ...process.env, HERMES_HOME: outHermesHome },
-    shell: true,
   });
   assertPrebakedBackend(outHermesHome);
 }
 
 function assertPrebakedBackend(outHermesHome) {
-  const venvPy = join(outHermesHome, 'hermes-agent/venv/bin/python');
-  if (!existsSync(venvPy)) {
-    throw new Error(`[assemble-portable] Prebake failed: missing ${venvPy}`);
+  const venvPy = resolveVenvPython(outHermesHome);
+  if (!venvPy) {
+    throw new Error(`[assemble-portable] Prebake failed: missing venv python under ${outHermesHome}/hermes-agent/venv`);
   }
   const hermesPython = join(outHermesHome, 'python');
+  const importEnv = { ...process.env };
+  if (existsSync(join(hermesPython, 'bin', 'python3'))) {
+    importEnv.PYTHONHOME = hermesPython;
+  }
   execFileSync(venvPy, ['-c', 'import fastapi, uvicorn, hermes_cli'], {
     stdio: 'pipe',
-    env: {
-      ...process.env,
-      ...(existsSync(hermesPython) ? { PYTHONHOME: hermesPython } : {}),
-    },
+    env: importEnv,
   });
   const marker = join(outHermesHome, 'hermes-agent/.hermes-bootstrap-complete');
   if (!existsSync(marker)) {
@@ -225,23 +288,7 @@ function assembleMacArch(arch, prebake) {
     return null;
   }
 
-  // If CI provided arch-specific standalone Python tarball URLs, set for this arch only
-  const prevTar = process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
-  const prevStandalone = process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
-  let standaloneTemporarilyDisabled = false;
-  if (process.env.PINGHERMESAGENT_PREBAKE_STANDALONE === '1') {
-    const armUrl = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_ARM64;
-    const x64Url = process.env.PINGHERMESAGENT_STANDALONE_PY_URL_X64;
-    const chosen = arch === 'arm64' ? armUrl : x64Url;
-    if (chosen) {
-      process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = chosen;
-    } else {
-      // No tarball URL for this arch — fall back to system-Python prebake.
-      delete process.env.PINGHERMESAGENT_PREBAKE_STANDALONE;
-      standaloneTemporarilyDisabled = true;
-      console.warn(`[assemble-portable] No standalone Python tarball URL provided for mac-${arch}; falling back to system-Python prebake`);
-    }
-  }
+  const restoreStandaloneEnv = applyStandalonePrebakeEnv('mac', arch);
 
   const res = assembleBundle({
     platform: 'mac',
@@ -257,15 +304,7 @@ function assembleMacArch(arch, prebake) {
       }
     },
   });
-  // restore
-  if (prevTar === undefined) {
-    delete process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL;
-  } else {
-    process.env.PINGHERMESAGENT_PYTHON_TARBALL_URL = prevTar;
-  }
-  if (standaloneTemporarilyDisabled) {
-    process.env.PINGHERMESAGENT_PREBAKE_STANDALONE = prevStandalone;
-  }
+  restoreStandaloneEnv();
   return res;
 }
 
@@ -291,16 +330,17 @@ function assembleWin(prebake) {
   }
 
   mkdirSync(STAGING, { recursive: true });
-  return [
-    assembleBundle({
-      platform: 'win',
-      arch: 'x64',
-      prebake,
-      populate(outDir) {
-        cpSync(unpacked, join(outDir, 'win'), { recursive: true });
-      },
-    }),
-  ];
+  const restoreStandaloneEnv = applyStandalonePrebakeEnv('win', 'x64');
+  const zipPath = assembleBundle({
+    platform: 'win',
+    arch: 'x64',
+    prebake,
+    populate(outDir) {
+      cpSync(unpacked, join(outDir, 'win'), { recursive: true });
+    },
+  });
+  restoreStandaloneEnv();
+  return [zipPath];
 }
 
 function assembleLinux(prebake) {
@@ -310,18 +350,19 @@ function assembleLinux(prebake) {
   }
 
   mkdirSync(STAGING, { recursive: true });
-  return [
-    assembleBundle({
-      platform: 'linux',
-      arch: 'x64',
-      prebake,
-      populate(outDir) {
-        const dest = join(outDir, 'PingHermesAgent.AppImage');
-        cpSync(appImage, dest);
-        chmodSync(dest, 0o755);
-      },
-    }),
-  ];
+  const restoreStandaloneEnv = applyStandalonePrebakeEnv('linux', 'x64');
+  const zipPath = assembleBundle({
+    platform: 'linux',
+    arch: 'x64',
+    prebake,
+    populate(outDir) {
+      const dest = join(outDir, 'PingHermesAgent.AppImage');
+      cpSync(appImage, dest);
+      chmodSync(dest, 0o755);
+    },
+  });
+  restoreStandaloneEnv();
+  return [zipPath];
 }
 
 function main() {

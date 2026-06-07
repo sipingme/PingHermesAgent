@@ -1,6 +1,6 @@
 {
   "name": "pinghermesagent",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "description": "PingHermesAgent — PingAI 品智定制的 Hermes Agent Desktop（Strategy A：官方 Python 后端）",
   "homepage": "https://github.com/sipingme/PingHermesAgent",
@@ -22,6 +22,7 @@
     "package:portable:mac": "node scripts/assemble-portable.mjs mac",
     "package:portable:mac:offline": "node scripts/assemble-portable.mjs mac --prebake",
     "package:portable:win": "node scripts/assemble-portable.mjs win",
+    "package:portable:win:offline": "node scripts/assemble-portable.mjs win --prebake",
     "package:portable:linux": "node scripts/assemble-portable.mjs linux",
     "package:portable:linux:offline": "node scripts/assemble-portable.mjs linux --prebake",
     "package:portable": "node scripts/assemble-portable.mjs all",
