@@ -59,4 +59,4 @@ if (-not (Test-Path -LiteralPath $venvPy)) {
 Write-Host ''
 Write-Host 'Backend ready. Next steps:'
 Write-Host "  1. $(Join-Path $HERMES 'hermes-agent\venv\Scripts\hermes.exe') setup"
-Write-Host '  2. Double-click Start PingHermesAgent.bat (after building PingHermesAgent.exe)"
+Write-Host '  2. Double-click Start PingHermesAgent.bat (after building PingHermesAgent.exe)'
