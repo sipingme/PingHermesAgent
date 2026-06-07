@@ -73,7 +73,7 @@ function copyPortableTemplate(outDir) {
 
   const destDir = join(outDir, 'scripts');
   mkdirSync(destDir, { recursive: true });
-  for (const name of ['relocate-portable-hermes.sh', 'clear-mac-gatekeeper.sh']) {
+  for (const name of ['relocate-portable-hermes.sh', 'clear-mac-gatekeeper.sh', 'repair-portable-venv.sh']) {
     const fromPortable = join(PORTABLE_SRC, 'scripts', name);
     const fromRoot = join(ROOT, 'scripts', name);
     const src = existsSync(fromPortable) ? fromPortable : fromRoot;
@@ -146,7 +146,7 @@ function assertPrebakedBackend(outHermesHome) {
     throw new Error(`[assemble-portable] Prebake failed: missing ${venvPy}`);
   }
   const hermesPython = join(outHermesHome, 'python');
-  execFileSync(venvPy, ['-c', 'import hermes_cli'], {
+  execFileSync(venvPy, ['-c', 'import fastapi, uvicorn, hermes_cli'], {
     stdio: 'pipe',
     env: {
       ...process.env,

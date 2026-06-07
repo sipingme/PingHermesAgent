@@ -121,6 +121,13 @@ if ! "$VENV_PY" -c "import hermes_cli" 2>/dev/null; then
   exit 1
 fi
 
+echo "==> Installing desktop web stack (fastapi + uvicorn + pty)..."
+(
+  cd "$HERMES/hermes-agent"
+  "$VENV_PY" -m pip install --no-cache-dir -e '.[web,pty]'
+)
+"$VENV_PY" -c "import fastapi, uvicorn, hermes_cli; print('web deps OK')"
+
 echo "==> Stamping bootstrap marker (skip first-launch installer)..."
 HERMES_HOME="$HERMES" "$ROOT/scripts/stamp-bootstrap-marker.sh"
 

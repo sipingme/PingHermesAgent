@@ -141,7 +141,7 @@ jobs:
             fi
             test -x "$dir/data/hermes/hermes-agent/venv/bin/python"
             # Verify import using bundled relocatable Python only
-            "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import hermes_cli; print('IMPORT_OK')"
+            "$dir/data/hermes/hermes-agent/venv/bin/python" -c "import fastapi, uvicorn, hermes_cli; print('IMPORT_OK')"
             test -f "$dir/data/hermes/hermes-agent/.hermes-bootstrap-complete"
             echo "OK: offline backend in PingHermesAgentPortable-${VERSION}-mac-${arch}.zip staging"
           done
