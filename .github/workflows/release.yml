@@ -85,6 +85,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Setup uv (Windows/Linux prebake)
+        if: matrix.platform == 'win' || matrix.platform == 'linux'
+        uses: astral-sh/setup-uv@v5
+
       - name: Install zstd for standalone Python extraction (macOS)
         if: matrix.platform == 'mac'
         run: |
