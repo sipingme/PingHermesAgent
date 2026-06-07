@@ -10,14 +10,23 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HERMES="${HERMES_HOME:-$ROOT/data/hermes}"
 ACTIVE_ROOT="$HERMES/hermes-agent"
 MARKER="$ACTIVE_ROOT/.hermes-bootstrap-complete"
-VENV_PY="$ACTIVE_ROOT/venv/bin/python"
+
+resolve_venv_python() {
+  if [[ -x "$ACTIVE_ROOT/venv/Scripts/python.exe" ]]; then
+    echo "$ACTIVE_ROOT/venv/Scripts/python.exe"
+  elif [[ -x "$ACTIVE_ROOT/venv/bin/python" ]]; then
+    echo "$ACTIVE_ROOT/venv/bin/python"
+  else
+    return 1
+  fi
+}
 
 if [[ ! -f "$ACTIVE_ROOT/hermes_cli/main.py" ]]; then
   echo "Not a Hermes install: $ACTIVE_ROOT" >&2
   exit 1
 fi
-if [[ ! -x "$VENV_PY" ]]; then
-  echo "Missing venv: $VENV_PY" >&2
+if ! VENV_PY="$(resolve_venv_python)"; then
+  echo "Missing venv python under $ACTIVE_ROOT/venv" >&2
   exit 1
 fi
 
