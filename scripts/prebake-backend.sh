@@ -37,6 +37,29 @@ mkdir -p "$HERMES/home" "$HERMES/logs" "$HERMES/cache/uv"
 
 VENV_PY="$HERMES/hermes-agent/venv/bin/python"
 
+resolve_uv() {
+  local candidate
+  for candidate in "$HERMES/bin/uv" "$(command -v uv 2>/dev/null || true)"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+pip_install() {
+  local uv
+  if uv="$(resolve_uv)"; then
+    "$uv" pip install --python "$VENV_PY" "$@"
+  elif "$VENV_PY" -m pip --version >/dev/null 2>&1; then
+    "$VENV_PY" -m pip install "$@"
+  else
+    echo "Prebake failed: need uv ($HERMES/bin/uv) or pip in venv" >&2
+    exit 1
+  fi
+}
+
 ensure_standalone_python() {
   # Provision a relocatable standalone Python into $HERMES/python if requested
   local pybin="$HERMES/python/bin/python3"
@@ -102,7 +125,7 @@ if [[ "$SKIP_INSTALL" == false ]]; then
       "$ROOT/scripts/install-backend.sh"
       export PATH="$PATH_PREV"
       VENV_PY="$HERMES/hermes-agent/venv/bin/python"
-      "$VENV_PY" -m pip install -U pip wheel setuptools >/dev/null 2>&1 || true
+      pip_install -U pip wheel setuptools >/dev/null 2>&1 || true
       "$VENV_PY" -c 'import hermes_cli' >/dev/null
     else
       echo "==> Installing backend with system Python (requires network: git + PyPI)..."
@@ -124,7 +147,7 @@ fi
 echo "==> Installing desktop web stack (fastapi + uvicorn + pty)..."
 (
   cd "$HERMES/hermes-agent"
-  "$VENV_PY" -m pip install --no-cache-dir -e '.[web,pty]'
+  pip_install --no-cache -e '.[web,pty]'
 )
 "$VENV_PY" -c "import fastapi, uvicorn, hermes_cli; print('web deps OK')"
 
