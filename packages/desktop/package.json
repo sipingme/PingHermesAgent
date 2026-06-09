@@ -2,7 +2,7 @@
   "name": "pinghermesagent-desktop",
   "productName": "PingHermesAgent",
   "private": true,
-  "version": "0.1.21",
+  "version": "0.1.22",
   "description": "PingHermesAgent desktop shell for Hermes Agent (uses official Nous Python backend).",
   "author": "Ping",
   "type": "module",

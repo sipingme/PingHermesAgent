@@ -224,7 +224,8 @@ function resolveHermesHome() {
     throw new Error('Portable mode enabled but HERMES_HOME is not set')
   }
   if (process.env.HERMES_HOME) return path.resolve(process.env.HERMES_HOME)
-  if (USER_DATA_OVERRIDE) return path.join(path.resolve(USER_DATA_OVERRIDE), 'hermes-home')
+  const userDataOverride = process.env.HERMES_DESKTOP_USER_DATA_DIR || USER_DATA_OVERRIDE
+  if (userDataOverride) return path.join(path.resolve(userDataOverride), 'hermes-home')
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
     const localappdata = path.join(process.env.LOCALAPPDATA, 'hermes')
     const legacy = path.join(app.getPath('home'), '.hermes')
