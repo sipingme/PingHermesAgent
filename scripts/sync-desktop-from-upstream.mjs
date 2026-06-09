@@ -98,7 +98,6 @@ if (PORTABLE_RUNTIME.enabled) {
     \`[hermes] portable mode: root=\${PORTABLE_RUNTIME.root} hermes=\${PORTABLE_RUNTIME.hermesHome} userData=\${PORTABLE_RUNTIME.desktopUserData}\`
   )
 } else {
-  const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
   if (USER_DATA_OVERRIDE) {
     const resolvedUserData = path.resolve(USER_DATA_OVERRIDE)
     fs.mkdirSync(resolvedUserData, { recursive: true })
@@ -107,8 +106,9 @@ if (PORTABLE_RUNTIME.enabled) {
 }`;
 
   if (!s.includes('const PORTABLE_RUNTIME = bootstrapPortableRuntime')) {
+    // Match upstream with USER_DATA_OVERRIDE either in else block or at module level
     s = s.replace(
-      /const USER_DATA_OVERRIDE = process\.env\.HERMES_DESKTOP_USER_DATA_DIR\nif \(USER_DATA_OVERRIDE\) \{\n  const resolvedUserData = path\.resolve\(USER_DATA_OVERRIDE\)\n  fs\.mkdirSync\(resolvedUserData, \{ recursive: true \}\)\n  app\.setPath\('userData', resolvedUserData\)\n\}/,
+      /(?:const USER_DATA_OVERRIDE = process\.env\.HERMES_DESKTOP_USER_DATA_DIR\n)?if \(USER_DATA_OVERRIDE\) \{\n  const resolvedUserData = path\.resolve\(USER_DATA_OVERRIDE\)\n  fs\.mkdirSync\(resolvedUserData, \{ recursive: true \}\)\n  app\.setPath\('userData', resolvedUserData\)\n\}/,
       portableBootstrap,
     );
   }

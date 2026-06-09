@@ -76,6 +76,7 @@ try {
   }
 }
 
+const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
 const PORTABLE_RUNTIME = bootstrapPortableRuntime({
   execPath: process.execPath,
   resourcesPath: process.resourcesPath
@@ -93,7 +94,6 @@ if (PORTABLE_RUNTIME.enabled) {
     `[hermes] portable mode: root=${PORTABLE_RUNTIME.root} hermes=${PORTABLE_RUNTIME.hermesHome} userData=${PORTABLE_RUNTIME.desktopUserData}`
   )
 } else {
-  const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
   if (USER_DATA_OVERRIDE) {
     const resolvedUserData = path.resolve(USER_DATA_OVERRIDE)
     fs.mkdirSync(resolvedUserData, { recursive: true })
